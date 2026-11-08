@@ -99,6 +99,7 @@ export default function EmployeePage() {
   const [sector, setSector] = useState("Semua sektor");
   const [status, setStatus] = useState("Semua status");
   const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
+  const [employeeFormStep, setEmployeeFormStep] = useState<1 | 2>(1);
 
   const filteredEmployees = useMemo(() => {
     const normalizedQuery = query.toLowerCase().trim();
@@ -137,7 +138,7 @@ export default function EmployeePage() {
           <Button variant="outline" size="sm">
             <Download className="h-4 w-4" /> Export
           </Button>
-          <Button size="sm" onClick={() => setIsAddEmployeeOpen(true)}>
+          <Button size="sm" onClick={() => { setEmployeeFormStep(1); setIsAddEmployeeOpen(true); }}>
             <Plus className="h-4 w-4" /> Tambah karyawan
           </Button>
         </div>
@@ -340,8 +341,11 @@ export default function EmployeePage() {
             <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
               <div>
                 <h2 id="add-employee-title" className="text-lg font-semibold">
-                  Tambah karyawan
+                  {employeeFormStep === 1 ? "Tambah karyawan" : "Data nomor rekening"}
                 </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Langkah {employeeFormStep} dari 2 · {employeeFormStep === 1 ? "Data pribadi dan penempatan sektor" : "Informasi rekening untuk kebutuhan payroll"}
+                </p>
               </div>
               <Button
                 variant="ghost"
@@ -359,6 +363,7 @@ export default function EmployeePage() {
                 setIsAddEmployeeOpen(false);
               }}
             >
+              {employeeFormStep === 1 ? (
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   label="Nama lengkap"
@@ -418,15 +423,23 @@ export default function EmployeePage() {
                   </div>
                 </fieldset>
               </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField label="Nama bank" name="nama_bank" placeholder="Contoh: Bank BCA" />
+                    <FormField label="Nomor rekening" name="nomor_rekening" placeholder="Masukkan nomor rekening" />
+                    <FormField label="Nama pemilik rekening" name="nama_pemilik_rekening" placeholder="Sesuai buku rekening" />
+                    <FormField label="Cabang bank" name="cabang_bank" placeholder="Opsional" required={false} />
+                  </div>
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                    Pastikan nomor rekening dan nama pemilik sudah sesuai untuk proses payroll.
+                  </div>
+                </div>
+              )}
               <div className="flex justify-end gap-2 border-t border-border pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsAddEmployeeOpen(false)}
-                >
-                  Batal
-                </Button>
-                <Button type="submit">Simpan karyawan</Button>
+                {employeeFormStep === 2 && <Button type="button" variant="outline" onClick={() => setEmployeeFormStep(1)}>Kembali</Button>}
+                <Button type="button" variant="outline" onClick={() => setIsAddEmployeeOpen(false)}>Batal</Button>
+                {employeeFormStep === 1 ? <Button type="button" onClick={() => setEmployeeFormStep(2)}>Lanjut ke data rekening</Button> : <Button type="submit">Simpan karyawan</Button>}
               </div>
             </form>
           </div>
@@ -441,17 +454,19 @@ function FormField({
   name,
   placeholder,
   type = "text",
+  required = true,
 }: {
   label: string;
   name: string;
   placeholder?: string;
   type?: string;
+  required?: boolean;
 }) {
   return (
     <label className="space-y-1.5 text-sm">
       <span className="font-medium text-foreground">{label}</span>
       <input
-        required
+        required={required}
         name={name}
         type={type}
         placeholder={placeholder}
