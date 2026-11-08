@@ -67,7 +67,7 @@ export function Sidebar({ collapsed, onToggle, embedded = false }: SidebarProps)
     <aside
       className={cn(
         "inset-y-0 left-0 z-30 flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300",
-        embedded ? "relative h-full w-full" : "fixed" ,
+        embedded ? "relative h-full w-full" : "fixed",
         collapsed ? "w-[68px]" : "w-60"
       )}
     >

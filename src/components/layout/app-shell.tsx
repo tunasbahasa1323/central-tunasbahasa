@@ -24,7 +24,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Mobile sidebar */}
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetContent side="left" className="w-60 p-0 bg-sidebar border-sidebar-border">
+          <SheetContent
+            side="left"
+            className="w-[min(82vw,20rem)] max-w-[20rem] overflow-hidden p-0 bg-sidebar border-sidebar-border"
+          >
             <Sidebar
               collapsed={false}
               embedded
