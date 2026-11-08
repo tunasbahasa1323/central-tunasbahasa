@@ -375,6 +375,7 @@ export default function EmployeePage() {
                   name="nik"
                   placeholder="Masukkan NIK"
                 />
+                <FormField label="Email" name="email" type="email" placeholder="nama@contoh.com" />
                 <FormField label="Nomor WhatsApp" name="no_wa" placeholder="08xxxxxxxxxx" />
                 <FormField label="Nomor telepon" name="no_tlp" placeholder="Nomor telepon" />
                 <FormField label="Tempat lahir" name="tempat_lahir" placeholder="Contoh: Jakarta" />
