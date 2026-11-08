@@ -147,14 +147,13 @@ export function Sidebar({ collapsed, onToggle, embedded = false }: SidebarProps)
           size="sm"
           onClick={onToggle}
           className="w-full justify-center text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+          aria-label={collapsed ? "Buka sidebar" : "Tutup sidebar"}
+          title={collapsed ? "Buka sidebar" : "Tutup sidebar"}
         >
           {collapsed ? (
             <ChevronRight className="h-4 w-4" />
           ) : (
-            <>
-              <ChevronLeft className="h-4 w-4" />
-              <span className="ml-2">Tutup</span>
-            </>
+            <ChevronLeft className="h-4 w-4" />
           )}
         </Button>
       </div>
