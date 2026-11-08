@@ -152,6 +152,12 @@ const roleLabel: Record<string, string> = {
 
 export default function DashboardPage() {
   const [financialRange, setFinancialRange] = useState("6");
+  const financialRanges = [
+    { value: "3", label: "3 bulan" },
+    { value: "6", label: "6 bulan" },
+    { value: "12", label: "1 tahun" },
+    { value: "24", label: "2 tahun" },
+  ];
   const totalDistribution = sectorDistribution.reduce(
     (sum, s) => sum + s.count,
     0,
@@ -223,20 +229,18 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger className="inline-flex h-8 items-center gap-2 rounded-md border border-input bg-background px-2.5 text-xs font-medium text-foreground shadow-xs outline-none transition-colors hover:bg-muted focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30">
-                {financialRange === "12"
-                  ? "1 tahun"
-                  : `${financialRange} bulan`}
+                {financialRanges.find((item) => item.value === financialRange)?.label}
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-32">
-                {["1", "2", "3", "6", "12"].map((range) => (
+                {financialRanges.map((range) => (
                   <DropdownMenuItem
-                    key={range}
-                    onClick={() => setFinancialRange(range)}
+                    key={range.value}
+                    onClick={() => setFinancialRange(range.value)}
                     className="justify-between"
                   >
-                    {range === "12" ? "1 tahun" : `${range} bulan`}
-                    {financialRange === range && (
+                    {range.label}
+                    {financialRange === range.value && (
                       <Check className="h-4 w-4 text-primary" />
                     )}
                   </DropdownMenuItem>

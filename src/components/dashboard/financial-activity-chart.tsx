@@ -13,6 +13,18 @@ import {
 } from "recharts";
 
 const monthlyData = [
+  { month: "Jan 25", tunasBahasa: 12800, turkiUp: 7600, alkapreloved: 5600 },
+  { month: "Feb 25", tunasBahasa: 13400, turkiUp: 8100, alkapreloved: 5900 },
+  { month: "Mar 25", tunasBahasa: 14100, turkiUp: 8500, alkapreloved: 6200 },
+  { month: "Apr 25", tunasBahasa: 13800, turkiUp: 8800, alkapreloved: 6500 },
+  { month: "Mei 25", tunasBahasa: 14900, turkiUp: 9100, alkapreloved: 6800 },
+  { month: "Jun 25", tunasBahasa: 15300, turkiUp: 9400, alkapreloved: 7100 },
+  { month: "Jul 25", tunasBahasa: 15800, turkiUp: 9700, alkapreloved: 7300 },
+  { month: "Aug 25", tunasBahasa: 16100, turkiUp: 10100, alkapreloved: 7500 },
+  { month: "Sep 25", tunasBahasa: 16800, turkiUp: 10500, alkapreloved: 7800 },
+  { month: "Okt 25", tunasBahasa: 17100, turkiUp: 10800, alkapreloved: 8000 },
+  { month: "Nov 25", tunasBahasa: 17800, turkiUp: 11200, alkapreloved: 8200 },
+  { month: "Des 25", tunasBahasa: 18500, turkiUp: 11800, alkapreloved: 8600 },
   { month: "Des", tunasBahasa: 16200, turkiUp: 9800, alkapreloved: 7200 },
   { month: "Jan", tunasBahasa: 17400, turkiUp: 10600, alkapreloved: 7600 },
   { month: "Feb", tunasBahasa: 18100, turkiUp: 11400, alkapreloved: 8100 },
@@ -84,7 +96,7 @@ function CustomTooltip({
 
 export function FinancialActivityChart({ range }: { range: string }) {
   const visibleData = useMemo(() => {
-    const count = range === "12" ? 12 : Number(range);
+    const count = Number(range);
     return monthlyData.slice(-count);
   }, [range]);
   const totals = useMemo(
