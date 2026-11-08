@@ -27,6 +27,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <SheetContent side="left" className="w-60 p-0 bg-sidebar border-sidebar-border">
             <Sidebar
               collapsed={false}
+              embedded
               onToggle={() => setMobileOpen(false)}
             />
           </SheetContent>
