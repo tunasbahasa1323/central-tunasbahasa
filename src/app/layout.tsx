@@ -11,6 +11,11 @@ export const metadata: Metadata = {
   title: "Central Management — Tunas Bahasa",
   description:
     "Sistem manajemen karyawan dan sektor bisnis multi-bisnis untuk Tunas Bahasa.",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
