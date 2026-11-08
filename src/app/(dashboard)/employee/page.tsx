@@ -6,6 +6,8 @@ import {
   ChevronDown,
   Download,
   MoreHorizontal,
+  Eye,
+  KeyRound,
   Plus,
   Search,
   SlidersHorizontal,
@@ -100,6 +102,8 @@ export default function EmployeePage() {
   const [status, setStatus] = useState("Semua status");
   const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
   const [employeeFormStep, setEmployeeFormStep] = useState<1 | 2>(1);
+  const [employeeAction, setEmployeeAction] = useState<"view" | "reset" | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<(typeof employees)[number] | null>(null);
 
   const filteredEmployees = useMemo(() => {
     const normalizedQuery = query.toLowerCase().trim();
@@ -302,13 +306,22 @@ export default function EmployeePage() {
                       {employee.joinDate}
                     </td>
                     <td className="px-4 py-3">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Aksi untuk ${employee.name}`}
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground"
+                          aria-label={`Aksi untuk ${employee.name}`}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="min-w-44">
+                          <DropdownMenuItem onClick={() => { setSelectedEmployee(employee); setEmployeeAction("view"); }}>
+                            <Eye className="h-4 w-4" /> Lihat data
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setSelectedEmployee(employee); setEmployeeAction("reset"); }}>
+                            <KeyRound className="h-4 w-4" /> Reset password
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 ))}
@@ -326,6 +339,19 @@ export default function EmployeePage() {
           </div>
         </CardContent>
       </Card>
+      {employeeAction && selectedEmployee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) { setEmployeeAction(null); setSelectedEmployee(null); } }}>
+          <div className="w-full max-w-md rounded-xl bg-card p-6 text-card-foreground shadow-2xl ring-1 ring-foreground/10">
+            <h2 className="text-lg font-semibold">{employeeAction === "view" ? "Data karyawan" : "Reset password"}</h2>
+            {employeeAction === "view" ? (
+              <div className="mt-4 space-y-3 text-sm"><div><p className="text-xs text-muted-foreground">Nama</p><p className="font-medium">{selectedEmployee.name}</p></div><div><p className="text-xs text-muted-foreground">ID karyawan</p><p className="font-medium">{selectedEmployee.id}</p></div><div><p className="text-xs text-muted-foreground">Role dan sektor</p><p className="font-medium">{selectedEmployee.role} · {selectedEmployee.sectors.join(", ")}</p></div><div><p className="text-xs text-muted-foreground">Status</p><p className="font-medium">{selectedEmployee.status}</p></div></div>
+            ) : (
+              <div className="mt-4 space-y-3"><p className="text-sm text-muted-foreground">Password untuk {selectedEmployee.name} akan direset ke password default.</p><div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Password default: <strong>Tuba2023</strong></div></div>
+            )}
+            <div className="mt-6 flex justify-end gap-2"><Button variant="outline" onClick={() => { setEmployeeAction(null); setSelectedEmployee(null); }}>Tutup</Button>{employeeAction === "reset" && <Button onClick={() => { setEmployeeAction(null); setSelectedEmployee(null); }}>Reset password</Button>}</div>
+          </div>
+        </div>
+      )}
       {isAddEmployeeOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
