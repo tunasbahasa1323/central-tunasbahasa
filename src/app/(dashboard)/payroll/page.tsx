@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import jsPDF from "jspdf";
+import QRCode from "qrcode";
 import { Check, ChevronRight, CircleDollarSign, Clock3, History, Search, WalletCards } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,15 +22,131 @@ const tasks = [
 
 const formatRupiah = (value: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
 
+async function downloadPayslip(payment: (typeof paymentHistory)[number]) {
+  const pdf = new jsPDF({ format: "a4", unit: "mm" });
+  const slipUrl = `${window.location.origin}/slip/${payment.id}`;
+  const qrDataUrl = await QRCode.toDataURL(slipUrl, { errorCorrectionLevel: "H", margin: 1, width: 220 });
+  const left = 18;
+  const right = 192;
+  const navy = [20, 48, 92] as const;
+  const gray = [107, 114, 128] as const;
+  const line = [210, 218, 230] as const;
+  const amount = formatRupiah(payment.amount);
+
+  // Header follows the reference slip: company identity, document title, and period.
+  pdf.setFillColor(...navy);
+  pdf.rect(0, 0, 210, 38, "F");
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(17);
+  pdf.text("CENTRAL MANAGEMENT", left, 14);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.text("TUNAS BAHASA", left, 21);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(16);
+  pdf.text("SLIP GAJI", right, 15, { align: "right" });
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.text(`Nomor slip: ${payment.id}`, right, 22, { align: "right" });
+  pdf.text(`Tanggal pembayaran: ${payment.date}`, right, 29, { align: "right" });
+
+  pdf.setTextColor(31, 41, 55);
+
+  // Employee information table.
+  pdf.setFillColor(241, 247, 255);
+  pdf.roundedRect(left, 48, right - left, 34, 2, 2, "F");
+  pdf.setDrawColor(...line);
+  pdf.roundedRect(left, 48, right - left, 34, 2, 2, "S");
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(9);
+  pdf.setTextColor(...navy);
+  pdf.text("DATA PENERIMA", left + 6, 56);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(31, 41, 55);
+  pdf.text("Nama", left + 6, 65);
+  pdf.text(payment.name, left + 45, 65);
+  pdf.text("ID Karyawan", left + 6, 73);
+  pdf.text(payment.employeeId, left + 45, 73);
+  pdf.text("Nama bank", left + 100, 65);
+  pdf.text(payment.bankName, left + 135, 65);
+  pdf.text("No. rekening", left + 100, 73);
+  pdf.text(payment.accountNumber, left + 135, 73);
+
+  // Earnings table lists one row for every task included in the payment.
+  const paymentTasks = tasks.slice(0, Number.parseInt(payment.tasks, 10));
+  const taskAmount = paymentTasks.length > 0 ? payment.amount / paymentTasks.length : payment.amount;
+  let y = 96;
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(...navy);
+  pdf.setFontSize(10);
+  pdf.text("RINCIAN PENDAPATAN", left, y);
+  y += 6;
+  pdf.setFillColor(...navy);
+  pdf.rect(left, y, right - left, 9, "F");
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFontSize(8);
+  pdf.text("KETERANGAN", left + 5, y + 6);
+  pdf.text("JUMLAH", right - 5, y + 6, { align: "right" });
+  y += 9;
+  pdf.setDrawColor(...line);
+  pdf.setTextColor(31, 41, 55);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8.5);
+  paymentTasks.forEach((task, index) => {
+    const rowHeight = 12;
+    if (index % 2 === 1) pdf.setFillColor(248, 250, 252);
+    else pdf.setFillColor(255, 255, 255);
+    pdf.rect(left, y, right - left, rowHeight, "FD");
+    pdf.text(`${index + 1}. ${task.title}`, left + 5, y + 7);
+    pdf.text(formatRupiah(Math.round(taskAmount)), right - 5, y + 7, { align: "right" });
+    y += rowHeight;
+  });
+  pdf.setFillColor(241, 247, 255);
+  pdf.rect(left, y, right - left, 13, "F");
+  pdf.setDrawColor(...line);
+  pdf.rect(left, y, right - left, 13);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("TOTAL DITERIMA", left + 5, y + 8);
+  pdf.setTextColor(...navy);
+  pdf.setFontSize(11);
+  pdf.text(amount, right - 5, y + 8, { align: "right" });
+
+  const noticeY = y + 22;
+  pdf.setFillColor(241, 247, 255);
+  pdf.roundedRect(left, noticeY, right - left, 27, 2, 2, "F");
+  pdf.setTextColor(55, 65, 81);
+  pdf.setFontSize(8.5);
+  pdf.text("Dokumen ini diterbitkan secara otomatis oleh sistem Central Management", left + 6, noticeY + 11);
+  pdf.text("dan sah sebagai bukti resmi dari Perusahaan.", left + 6, noticeY + 18);
+
+  const footerY = Math.max(noticeY + 50, 242);
+  const qrX = right - 30;
+  const qrY = footerY + 5;
+  pdf.addImage(qrDataUrl, "PNG", qrX, qrY, 24, 24);
+  pdf.setDrawColor(...line);
+  pdf.line(left, footerY, right, footerY);
+  pdf.setTextColor(...gray);
+  pdf.setFontSize(8);
+  pdf.text("Central Management · Tunas Bahasa", left, footerY + 10);
+  pdf.text("Slip ini dibuat secara digital dan tidak memerlukan tanda tangan basah.", left, footerY + 17);
+  pdf.text(`Validasi: ${slipUrl}`, left, footerY + 24);
+  pdf.text("Halaman 1 dari 1", qrX - 5, footerY + 17, { align: "right" });
+  pdf.setFontSize(7.5);
+  pdf.text("Scan untuk validasi slip", qrX + 12, qrY + 29, { align: "center" });
+  pdf.save(`slip-payroll-${payment.id}.pdf`);
+}
+
 const paymentHistory = [
-  { id: "PAY-2026-011", name: "Ahmad Fauzi", tasks: "3 tugas", amount: 1850000, date: "01 Nov 2026", status: "Berhasil" },
-  { id: "PAY-2026-010", name: "Diana Putri", tasks: "4 tugas", amount: 2425000, date: "28 Okt 2026", status: "Berhasil" },
-  { id: "PAY-2026-009", name: "Budi Santoso", tasks: "2 tugas", amount: 950000, date: "25 Okt 2026", status: "Berhasil" },
+  { id: "PAY-2026-11-001", employeeId: "EMP-024", name: "Ahmad Fauzi", bankName: "Bank BCA", accountNumber: "1234567890", tasks: "3 tugas", amount: 1850000, date: "01 Nov 2026", status: "Berhasil" },
+  { id: "PAY-2026-10-001", employeeId: "EMP-021", name: "Diana Putri", bankName: "Bank Mandiri", accountNumber: "9876543210", tasks: "4 tugas", amount: 2425000, date: "28 Okt 2026", status: "Berhasil" },
+  { id: "PAY-2026-10-002", employeeId: "EMP-022", name: "Budi Santoso", bankName: "Bank BNI", accountNumber: "4567890123", tasks: "2 tugas", amount: 950000, date: "25 Okt 2026", status: "Berhasil" },
 ];
 
 export default function PayrollPage() {
   const [selectedStaff, setSelectedStaff] = useState(staff[0]);
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  const [selectedPayment, setSelectedPayment] = useState<(typeof paymentHistory)[number] | null>(null);
   const selectedTotal = useMemo(() => tasks.filter((task) => selectedTasks.includes(task.id)).reduce((total, task) => total + task.amount, 0), [selectedTasks]);
 
   return (
@@ -46,8 +164,18 @@ export default function PayrollPage() {
           <div><CardTitle className="flex items-center gap-2"><History className="h-4 w-4 text-primary" /> Riwayat pembayaran staf</CardTitle><CardDescription>Daftar pencairan komisi yang sudah diproses.</CardDescription></div>
           <Button variant="outline" size="sm">Lihat semua riwayat <ChevronRight className="h-4 w-4" /></Button>
         </CardHeader>
-        <CardContent><div className="overflow-x-auto"><table className="w-full min-w-[640px] text-sm"><thead><tr className="border-b text-left text-xs text-muted-foreground"><th className="px-3 py-3">ID pembayaran</th><th className="px-3 py-3">Penerima</th><th className="px-3 py-3">Komisi</th><th className="px-3 py-3">Tanggal</th><th className="px-3 py-3">Status</th><th className="px-3 py-3 text-right">Slip</th></tr></thead><tbody>{paymentHistory.map((payment) => <tr key={payment.id} className="border-b last:border-0"><td className="px-3 py-3 font-medium">{payment.id}<p className="text-xs font-normal text-muted-foreground">{payment.tasks}</p></td><td className="px-3 py-3">{payment.name}</td><td className="px-3 py-3 font-medium">{formatRupiah(payment.amount)}</td><td className="px-3 py-3 text-muted-foreground">{payment.date}</td><td className="px-3 py-3"><Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">{payment.status}</Badge></td><td className="px-3 py-3 text-right"><Button variant="ghost" size="sm">Lihat slip</Button></td></tr>)}</tbody></table></div></CardContent>
+        <CardContent><div className="overflow-x-auto"><table className="w-full min-w-[640px] text-sm"><thead><tr className="border-b text-left text-xs text-muted-foreground"><th className="px-3 py-3">ID pembayaran</th><th className="px-3 py-3">Penerima</th><th className="px-3 py-3">Komisi</th><th className="px-3 py-3">Tanggal</th><th className="px-3 py-3">Status</th><th className="px-3 py-3 text-right">Slip</th></tr></thead><tbody>{paymentHistory.map((payment) => <tr key={payment.id} className="border-b last:border-0"><td className="px-3 py-3 font-medium">{payment.id}<p className="text-xs font-normal text-muted-foreground">{payment.tasks}</p></td><td className="px-3 py-3">{payment.name}</td><td className="px-3 py-3 font-medium">{formatRupiah(payment.amount)}</td><td className="px-3 py-3 text-muted-foreground">{payment.date}</td><td className="px-3 py-3"><Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">{payment.status}</Badge></td><td className="px-3 py-3 text-right"><Button variant="ghost" size="sm" onClick={() => setSelectedPayment(payment)}>Lihat slip</Button></td></tr>)}</tbody></table></div></CardContent>
       </Card>
+      {selectedPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedPayment(null); }}>
+          <div className="w-full max-w-lg rounded-xl bg-card p-6 text-card-foreground shadow-2xl ring-1 ring-foreground/10">
+            <div className="flex items-start justify-between gap-4 border-b border-border pb-4"><div><p className="text-sm font-medium text-primary">Digital Payslip</p><h2 className="mt-1 text-lg font-semibold">Slip pembayaran payroll</h2><p className="mt-1 text-xs text-muted-foreground">{selectedPayment.id}</p></div><Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">{selectedPayment.status}</Badge></div>
+            <div className="mt-5 grid gap-4 text-sm sm:grid-cols-2"><div><p className="text-xs text-muted-foreground">Penerima</p><p className="mt-1 font-medium">{selectedPayment.name}</p></div><div><p className="text-xs text-muted-foreground">Tanggal pembayaran</p><p className="mt-1 font-medium">{selectedPayment.date}</p></div><div><p className="text-xs text-muted-foreground">Nama bank</p><p className="mt-1 font-medium">{selectedPayment.bankName}</p></div><div><p className="text-xs text-muted-foreground">No. rekening</p><p className="mt-1 font-medium">{selectedPayment.accountNumber}</p></div><div><p className="text-xs text-muted-foreground">Komisi tugas</p><p className="mt-1 font-medium">{selectedPayment.tasks}</p></div><div><p className="text-xs text-muted-foreground">Total dibayarkan</p><p className="mt-1 font-semibold text-primary">{formatRupiah(selectedPayment.amount)}</p></div></div>
+            <div className="mt-5 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">Dokumen ini diterbitkan secara otomatis oleh sistem Central Management dan sah sebagai bukti resmi dari Perusahaan.</div>
+            <div className="mt-6 flex justify-end gap-2"><Button variant="outline" onClick={() => setSelectedPayment(null)}>Tutup</Button><Button onClick={() => void downloadPayslip(selectedPayment)}>Cetak slip</Button></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
