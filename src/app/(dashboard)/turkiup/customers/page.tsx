@@ -29,6 +29,15 @@ type Customer = {
   source: string;
 };
 
+type TransactionDemo = {
+  date: string;
+  code: string;
+  service: string;
+  quantity: number;
+  total: string;
+  status: "Selesai" | "Diproses" | "Dibatalkan";
+};
+
 type CustomerRow = {
   id: string;
   customer_code: string;
@@ -53,6 +62,12 @@ const sourceOptions = [
   "Carousell",
   "Teman",
   "Lainnya",
+];
+
+const demoTransactions: TransactionDemo[] = [
+  { date: "11 Nov 2026", code: "TRX-202611-001", service: "Penerjemahan Dokumen", quantity: 2, total: "Rp 750.000", status: "Selesai" },
+  { date: "02 Nov 2026", code: "TRX-202611-002", service: "Kursus Bahasa Indonesia", quantity: 4, total: "Rp 1.200.000", status: "Diproses" },
+  { date: "18 Okt 2026", code: "TRX-202610-014", service: "Proofreading Dokumen", quantity: 1, total: "Rp 350.000", status: "Selesai" },
 ];
 
 function normalizePhone(value: string) {
@@ -438,7 +453,7 @@ export default function TurkiUpCustomersPage() {
               <Button type="button" variant="outline" size="sm" onClick={() => setTransactionCustomer(null)}>Tutup</Button>
             </div>
             <div className="mt-5 overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[640px] text-sm"><thead><tr className="border-b bg-muted/40 text-left text-xs text-muted-foreground"><th className="px-4 py-3 font-medium">Tanggal</th><th className="px-4 py-3 font-medium">No. Transaksi</th><th className="px-4 py-3 font-medium">Layanan</th><th className="px-4 py-3 font-medium">Jumlah</th><th className="px-4 py-3 text-right font-medium">Total</th><th className="px-4 py-3 font-medium">Status</th></tr></thead><tbody><tr className="border-b last:border-0"><td className="px-4 py-4">-</td><td className="px-4 py-4">Belum ada data</td><td className="px-4 py-4">-</td><td className="px-4 py-4">-</td><td className="px-4 py-4 text-right">-</td><td className="px-4 py-4"><Badge variant="secondary">UI Only</Badge></td></tr></tbody></table>
+              <table className="w-full min-w-[640px] text-sm"><thead><tr className="border-b bg-muted/40 text-left text-xs text-muted-foreground"><th className="px-4 py-3 font-medium">Tanggal</th><th className="px-4 py-3 font-medium">No. Transaksi</th><th className="px-4 py-3 font-medium">Layanan</th><th className="px-4 py-3 font-medium">Jumlah</th><th className="px-4 py-3 text-right font-medium">Total</th><th className="px-4 py-3 font-medium">Status</th></tr></thead><tbody>{demoTransactions.map((transaction) => <tr key={transaction.code} className="border-b last:border-0"><td className="px-4 py-4">{transaction.date}</td><td className="px-4 py-4 font-medium text-primary">{transaction.code}</td><td className="px-4 py-4">{transaction.service}</td><td className="px-4 py-4">{transaction.quantity}</td><td className="px-4 py-4 text-right font-medium">{transaction.total}</td><td className="px-4 py-4"><Badge variant={transaction.status === "Diproses" ? "outline" : "secondary"}>{transaction.status}</Badge></td></tr>)}</tbody></table>
             </div>
             <p className="mt-4 text-xs text-muted-foreground">Riwayat pembelian akan terisi setelah modul transaksi terhubung ke database.</p>
           </div>
