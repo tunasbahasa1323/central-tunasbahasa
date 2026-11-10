@@ -41,6 +41,7 @@ interface NavGroup {
 const turkiUpSubmenu: NavItem[] = [
   { name: "Overview", href: "/turkiup", icon: LayoutDashboard },
   { name: "Order & CRM", href: "/turkiup/orders", icon: ShoppingBag },
+  { name: "Data Customer", href: "/turkiup/customers", icon: Users },
   { name: "Invoice", href: "/turkiup/invoices", icon: FileText },
   { name: "Monitoring Tugas", href: "/turkiup/operations", icon: CheckSquare },
   { name: "Data Staff", href: "/turkiup/staff", icon: Users },
@@ -104,7 +105,7 @@ export function Sidebar({ collapsed, onToggle, embedded = false }: SidebarProps)
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav className="sidebar-scroll flex-1 overflow-y-auto px-3 py-4">
         {navigation.map((group) => (
           <div key={group.label} className="mb-4">
             {!collapsed && (

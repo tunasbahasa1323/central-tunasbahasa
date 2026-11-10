@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
   User,
   Filter,
+  Trash2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,34 @@ export default function TurkiUpOrdersPage() {
   const [statusFilter, setStatusFilter] = useState("Semua status");
   const [selectedOrder, setSelectedOrder] = useState<(typeof orders)[number] | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [orderItems, setOrderItems] = useState([{ id: 1, service: "", quantity: "1", amount: "", discount: "" }]);
+  const [discount, setDiscount] = useState("");
+
+  function formatNumberInput(value: string) {
+    const digits = value.replace(/\D/g, "");
+    return digits ? new Intl.NumberFormat("id-ID").format(Number(digits)) : "";
+  }
+
+  function addOrderItem() {
+    setOrderItems((items) => [...items, { id: Date.now(), service: "", quantity: "1", amount: "", discount: "" }]);
+  }
+
+  function updateOrderItem(id: number, field: "service" | "quantity" | "amount" | "discount", value: string) {
+    const formattedValue = field === "quantity" || field === "amount" ? formatNumberInput(value) : value;
+    setOrderItems((items) => items.map((item) => item.id === id ? { ...item, [field]: formattedValue } : item));
+  }
+
+  function removeOrderItem(id: number) {
+    setOrderItems((items) => items.length === 1 ? items : items.filter((item) => item.id !== id));
+  }
+
+  const orderSubtotal = orderItems.reduce((sum, item) => {
+    const quantity = Number(item.quantity.replace(/\D/g, "")) || 1;
+    const amount = Number(item.amount.replace(/\D/g, "")) || 0;
+    const itemDiscount = Number(item.discount.replace(/\D/g, "")) || 0;
+    return sum + Math.max(0, quantity * amount - itemDiscount);
+  }, 0);
+  const orderTotal = Math.max(0, orderSubtotal - (Number(discount.replace(/\D/g, "")) || 0));
 
   const filtered = useMemo(() =>
     orders.filter((o) => {
@@ -64,7 +93,7 @@ export default function TurkiUpOrdersPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Order & Pelanggan</h1>
           <p className="mt-1 text-sm text-muted-foreground">Kelola transaksi, penugasan staf, dan data pelanggan TurkiUp.</p>
         </div>
-        <Button size="sm" onClick={() => setIsCreateOpen(true)}>
+        <Button size="sm" onClick={() => { setOrderItems([{ id: 1, service: "", quantity: "1", amount: "", discount: "" }]); setDiscount(""); setIsCreateOpen(true); }}>
           <Plus className="h-4 w-4" /> Buat Order Baru
         </Button>
       </div>
@@ -232,29 +261,19 @@ export default function TurkiUpOrdersPage() {
                   <input name={f.name} placeholder={f.placeholder} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30" />
                 </label>
               ))}
-              <label className="space-y-1.5 text-sm sm:col-span-2">
-                <span className="font-medium">Layanan / Jasa</span>
-                <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30">
-                  <option value="">Pilih layanan</option>
-                  <option>Jasa Penerjemahan Dokumen</option>
-                  <option>Kelas Bahasa Turki Privat</option>
-                  <option>Interpretasi Meeting Online</option>
-                  <option>Pelatihan Bahasa Turki Grup</option>
-                </select>
-              </label>
-              <label className="space-y-1.5 text-sm">
-                <span className="font-medium">Harga (Rp)</span>
-                <input name="amount" type="number" placeholder="Masukkan nominal" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30" />
-              </label>
-              <label className="space-y-1.5 text-sm">
-                <span className="font-medium">Staf pengerjaan</span>
-                <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30">
-                  <option value="">Pilih staf</option>
-                  <option>Diana Putri</option>
-                  <option>M Galih Rakasiwi</option>
-                  <option>Windi Alfira</option>
-                </select>
-              </label>
+              <div className="space-y-3 sm:col-span-2">
+                <div className="flex items-center justify-between"><span className="text-sm font-medium">Daftar layanan / pesanan</span><Button type="button" variant="outline" size="sm" onClick={addOrderItem}><Plus className="h-4 w-4" /> Tambah Layanan</Button></div>
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full min-w-[680px] text-sm">
+                    <thead><tr className="border-b bg-muted/40 text-left text-xs text-muted-foreground"><th className="px-3 py-2 font-medium">No.</th><th className="px-3 py-2 font-medium">Layanan / Jasa</th><th className="px-3 py-2 font-medium">Banyak Orderan</th><th className="px-3 py-2 font-medium">Nominal (Rp)</th><th className="px-3 py-2 font-medium">Discount Item</th><th className="px-3 py-2 font-medium">Total Harga</th><th className="px-3 py-2" /></tr></thead>
+                                        <tbody>{orderItems.map((item, index) => { const quantity = Number(item.quantity.replace(/\D/g, "")) || 1; const amount = Number(item.amount.replace(/\D/g, "")) || 0; const itemDiscount = Number(item.discount.replace(/\D/g, "")) || 0; return <tr key={item.id} className="border-b last:border-0"><td className="px-3 py-2 text-muted-foreground">{index + 1}</td><td className="px-3 py-2"><select value={item.service} onChange={(event) => updateOrderItem(item.id, "service", event.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"><option value="">Pilih layanan</option><option>Jasa Penerjemahan Dokumen</option><option>Kelas Bahasa Turki Privat</option><option>Interpretasi Meeting Online</option><option>Pelatihan Bahasa Turki Grup</option></select></td><td className="px-3 py-2"><input value={item.quantity} onChange={(event) => updateOrderItem(item.id, "quantity", event.target.value)} inputMode="numeric" placeholder="1" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30" /></td><td className="px-3 py-2"><input value={item.amount} onChange={(event) => updateOrderItem(item.id, "amount", event.target.value)} inputMode="numeric" placeholder="1.000" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30" /></td><td className="px-3 py-2"><input value={item.discount} onChange={(event) => updateOrderItem(item.id, "discount", event.target.value)} inputMode="numeric" placeholder="Opsional" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30" /></td><td className="px-3 py-2 font-semibold text-primary">{formatRupiah(Math.max(0, quantity * amount - itemDiscount))}</td><td className="px-3 py-2"><Button type="button" variant="ghost" size="sm" disabled={orderItems.length === 1} onClick={() => removeOrderItem(item.id)} aria-label="Hapus layanan"><Trash2 className="h-4 w-4 text-rose-600" /></Button></td></tr>; })}</tbody>
+                  </table>
+                </div>
+                <div className="mt-3 flex flex-col items-end gap-2 border-t border-border pt-3">
+                  <label className="flex items-center gap-2 text-sm font-medium">Discount (opsional)<input value={discount} onChange={(event) => setDiscount(formatNumberInput(event.target.value))} inputMode="numeric" placeholder="0" className="h-9 w-36 rounded-md border border-input bg-background px-3 text-right text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30" /></label>
+                  <p className="text-right text-sm font-semibold text-primary">Total: {formatRupiah(orderTotal)}</p>
+                </div>
+              </div>
             </div>
             <div className="mt-6 flex justify-end gap-2 border-t border-border pt-4">
               <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Batal</Button>

@@ -6,7 +6,6 @@ import {
   Pencil,
   Trash2,
   MoreHorizontal,
-  Tag,
   CheckCircle2,
   XCircle,
 } from "lucide-react";
@@ -88,46 +87,51 @@ export default function TurkiUpCatalogPage() {
         ))}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {services.map((service) => (
-          <Card key={service.id} className={service.isActive ? "" : "opacity-60"}>
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary" className="text-xs">{service.category}</Badge>
-                    {service.isActive
-                      ? <span className="inline-flex items-center gap-1 text-xs text-emerald-600"><CheckCircle2 className="h-3 w-3" />Aktif</span>
-                      : <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><XCircle className="h-3 w-3" />Nonaktif</span>
-                    }
-                  </div>
-                  <p className="mt-2 font-medium leading-tight">{service.name}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{service.description}</p>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="shrink-0 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground" aria-label={`Aksi ${service.id}`}>
-                    <MoreHorizontal className="h-4 w-4" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => openEdit(service)}><Pencil className="h-4 w-4" /> Edit</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => toggleActive(service.id)}>
-                      {service.isActive ? <><XCircle className="h-4 w-4" /> Nonaktifkan</> : <><CheckCircle2 className="h-4 w-4" /> Aktifkan</>}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-rose-600" onClick={() => deleteService(service.id)}><Trash2 className="h-4 w-4" /> Hapus</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-                <div>
-                  <p className="text-xs text-muted-foreground">Harga dasar</p>
-                  <p className="font-semibold text-primary">{formatRupiah(service.basePrice)}</p>
-                </div>
-                <p className="text-xs text-muted-foreground font-mono">{service.id}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px] text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground">
+                  <th className="px-5 py-3 font-medium">ID</th>
+                  <th className="px-4 py-3 font-medium">Nama Layanan</th>
+                  <th className="px-4 py-3 font-medium">Kategori</th>
+                  <th className="px-4 py-3 font-medium">Deskripsi</th>
+                  <th className="px-4 py-3 font-medium">Harga Dasar</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {services.map((service) => (
+                  <tr key={service.id} className={`border-b last:border-0 hover:bg-muted/30 ${service.isActive ? "" : "opacity-60"}`}>
+                    <td className="px-5 py-4 font-mono text-xs text-muted-foreground">{service.id}</td>
+                    <td className="px-4 py-4 font-medium">{service.name}</td>
+                    <td className="px-4 py-4"><Badge variant="secondary" className="text-xs">{service.category}</Badge></td>
+                    <td className="max-w-[280px] px-4 py-4 text-xs text-muted-foreground">{service.description}</td>
+                    <td className="px-4 py-4 font-semibold text-primary">{formatRupiah(service.basePrice)}</td>
+                    <td className="px-4 py-4">
+                      {service.isActive
+                        ? <span className="inline-flex items-center gap-1 text-xs text-emerald-600"><CheckCircle2 className="h-3 w-3" />Aktif</span>
+                        : <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><XCircle className="h-3 w-3" />Nonaktif</span>}
+                    </td>
+                    <td className="px-4 py-4">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground" aria-label={`Aksi ${service.id}`}><MoreHorizontal className="h-4 w-4" /></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(service)}><Pencil className="h-4 w-4" /> Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toggleActive(service.id)}>{service.isActive ? <><XCircle className="h-4 w-4" /> Nonaktifkan</> : <><CheckCircle2 className="h-4 w-4" /> Aktifkan</>}</DropdownMenuItem>
+                          <DropdownMenuItem className="text-rose-600" onClick={() => deleteService(service.id)}><Trash2 className="h-4 w-4" /> Hapus</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Add/Edit modal */}
       {isFormOpen && (
@@ -139,7 +143,7 @@ export default function TurkiUpCatalogPage() {
               {[
                 { label: "Nama layanan", name: "name", placeholder: "Contoh: Jasa Penerjemahan Dokumen", defaultValue: editTarget?.name },
                 { label: "Kategori", name: "category", placeholder: "Contoh: Penerjemahan", defaultValue: editTarget?.category },
-                { label: "Harga dasar (Rp)", name: "basePrice", placeholder: "Contoh: 150000", defaultValue: editTarget?.basePrice?.toString() },
+                { label: "Harga jual mulai dari (Rp)", name: "basePrice", placeholder: "Contoh: 150000", defaultValue: editTarget?.basePrice?.toString() },
               ].map((f) => (
                 <label key={f.name} className="block space-y-1.5 text-sm">
                   <span className="font-medium">{f.label}</span>
