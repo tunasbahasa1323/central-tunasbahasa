@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 import { MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,27 @@ type Customer = {
   phone: string;
   email: string;
   address: string;
+  rtRw: string;
+  village: string;
+  district: string;
+  city: string;
+  province: string;
+  postalCode: string;
+  source: string;
+};
+
+type CustomerRow = {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  rt_rw: string;
+  village: string;
+  district: string;
+  city: string;
+  province: string;
+  postal_code: string;
   source: string;
 };
 
@@ -25,6 +47,8 @@ export default function TurkiUpCustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [query, setQuery] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
+  const [saveMessage, setSaveMessage] = useState("");
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [customerSource, setCustomerSource] = useState("");
   const [province, setProvince] = useState("");
@@ -36,6 +60,28 @@ export default function TurkiUpCustomersPage() {
   const filteredCustomers = useMemo(() => customers.filter((customer) =>
     `${customer.name} ${customer.phone} ${customer.email}`.toLowerCase().includes(query.toLowerCase()),
   ), [customers, query]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadCustomers() {
+      if (!isSupabaseConfigured) {
+        setSaveMessage("Supabase belum dikonfigurasi.");
+        setIsLoadingCustomers(false);
+        return;
+      }
+      const result = await supabase.from("tu_customers").select("*").order("created_at", { ascending: false });
+      if (!active) return;
+      if (result.error) setSaveMessage(result.error.message);
+      else setCustomers(((result.data ?? []) as CustomerRow[]).map(mapCustomerRow));
+      setIsLoadingCustomers(false);
+    }
+    void loadCustomers();
+    return () => { active = false; };
+  }, []);
+
+  function mapCustomerRow(row: CustomerRow): Customer {
+    return { id: row.id, name: row.name, phone: row.phone, email: row.email, address: row.address, rtRw: row.rt_rw, village: row.village, district: row.district, city: row.city, province: row.province, postalCode: row.postal_code, source: row.source };
+  }
 
   function openCreate() {
     setEditingCustomer(null);
@@ -49,9 +95,9 @@ export default function TurkiUpCustomersPage() {
 
   function openEdit(customer: Customer) {
     setEditingCustomer(customer);
-    setCustomerSource(customer.source);
-    setProvince("");
-    setCity("");
+    setCustomerSource(sourceOptions.includes(customer.source) ? customer.source : "Lainnya");
+    setProvince(customer.province);
+    setCity(customer.city);
     setCitySuggestions([]);
     setProvinceSuggestions([]);
     setIsFormOpen(true);
@@ -83,18 +129,38 @@ export default function TurkiUpCustomersPage() {
     }
   }
 
-  function saveCustomer(event: React.FormEvent<HTMLFormElement>) {
+  async function saveCustomer(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const customer: Customer = {
-      id: editingCustomer?.id ?? `CUS-${String(customers.length + 1).padStart(3, "0")}`,
+    const fields = {
       name: String(form.get("name") ?? "").trim(),
       phone: String(form.get("phone") ?? "").trim(),
       email: String(form.get("email") ?? "").trim(),
-      address: [String(form.get("address") ?? "").trim(), `RT/RW ${String(form.get("rtRw") ?? "").trim()}`, String(form.get("village") ?? "").trim(), String(form.get("city") ?? "").trim(), String(form.get("district") ?? "").trim(), String(form.get("province") ?? "").trim(), String(form.get("postalCode") ?? "").trim()].filter((value) => value && !/^RT\/RW $/.test(value)).join(", "),
+      address: String(form.get("address") ?? "").trim(),
+      rt_rw: String(form.get("rtRw") ?? "").trim(),
+      village: String(form.get("village") ?? "").trim(),
+      district: String(form.get("district") ?? "").trim(),
+      city: String(form.get("city") ?? "").trim(),
+      province: String(form.get("province") ?? "").trim(),
+      postal_code: String(form.get("postalCode") ?? "").trim(),
       source: customerSource === "Lainnya" ? String(form.get("customSource") ?? "").trim() : customerSource,
+      updated_at: new Date().toISOString(),
     };
-    setCustomers((current) => editingCustomer ? current.map((item) => item.id === customer.id ? customer : item) : [customer, ...current]);
+    if (!isSupabaseConfigured) {
+      setSaveMessage("Supabase belum dikonfigurasi.");
+      return;
+    }
+    setSaveMessage("Menyimpan...");
+    const result = editingCustomer
+      ? await supabase.from("tu_customers").update(fields).eq("id", editingCustomer.id).select("*").single()
+      : await supabase.from("tu_customers").insert(fields).select("*").single();
+    if (result.error) {
+      setSaveMessage(result.error.message);
+      return;
+    }
+    const savedCustomer = mapCustomerRow(result.data as CustomerRow);
+    setCustomers((current) => editingCustomer ? current.map((item) => item.id === savedCustomer.id ? savedCustomer : item) : [savedCustomer, ...current]);
+    setSaveMessage("");
     setIsFormOpen(false);
   }
 
@@ -105,9 +171,9 @@ export default function TurkiUpCustomersPage() {
         <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4" /> Tambah Customer</Button>
       </div>
 
-      <Card><CardHeader className="border-b border-border pb-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><CardTitle>Daftar Customer</CardTitle><div className="relative w-full sm:w-72"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama, nomor HP, atau email..." className="h-9 w-full rounded-md border border-input bg-background px-3 pl-9 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30" /></div></div></CardHeader><CardContent className="p-0"><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm"><thead><tr className="border-b text-left text-xs text-muted-foreground"><th className="px-5 py-3 font-medium">Nama</th><th className="px-4 py-3 font-medium">No. HP</th><th className="px-4 py-3 font-medium">Email</th><th className="px-4 py-3 font-medium">Alamat Lengkap</th><th className="px-4 py-3 font-medium">Sumber Customer</th><th className="px-4 py-3" /></tr></thead><tbody>{filteredCustomers.map((customer) => <tr key={customer.id} className="border-b last:border-0 hover:bg-muted/30"><td className="px-5 py-4 font-medium">{customer.name}</td><td className="px-4 py-4">{customer.phone}</td><td className="px-4 py-4">{customer.email || "-"}</td><td className="max-w-[280px] px-4 py-4 text-muted-foreground">{customer.address || "-"}</td><td className="px-4 py-4"><Badge variant="secondary">{customer.source || "-"}</Badge></td><td className="px-4 py-4"><DropdownMenu><DropdownMenuTrigger className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"><MoreHorizontal className="h-4 w-4" /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => openEdit(customer)}>Edit</DropdownMenuItem><DropdownMenuItem className="text-rose-600" onClick={() => setCustomers((current) => current.filter((item) => item.id !== customer.id))}><Trash2 className="h-4 w-4" /> Hapus</DropdownMenuItem></DropdownMenuContent></DropdownMenu></td></tr>)}</tbody></table>{filteredCustomers.length === 0 && <p className="px-5 py-10 text-center text-sm text-muted-foreground">Belum ada data customer.</p>}</div></CardContent></Card>
+      <Card><CardHeader className="border-b border-border pb-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><CardTitle>Daftar Customer</CardTitle><div className="relative w-full sm:w-72"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama, nomor HP, atau email..." className="h-9 w-full rounded-md border border-input bg-background px-3 pl-9 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30" /></div></div></CardHeader><CardContent className="p-0"><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm"><thead><tr className="border-b text-left text-xs text-muted-foreground"><th className="px-5 py-3 font-medium">Nama</th><th className="px-4 py-3 font-medium">No. HP</th><th className="px-4 py-3 font-medium">Email</th><th className="px-4 py-3 font-medium">Alamat Lengkap</th><th className="px-4 py-3 font-medium">Sumber Customer</th><th className="px-4 py-3" /></tr></thead><tbody>{filteredCustomers.map((customer) => <tr key={customer.id} className="border-b last:border-0 hover:bg-muted/30"><td className="px-5 py-4 font-medium">{customer.name}</td><td className="px-4 py-4">{customer.phone}</td><td className="px-4 py-4">{customer.email || "-"}</td><td className="max-w-[280px] px-4 py-4 text-muted-foreground">{customer.address || "-"}</td><td className="px-4 py-4"><Badge variant="secondary">{customer.source || "-"}</Badge></td><td className="px-4 py-4"><DropdownMenu><DropdownMenuTrigger className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"><MoreHorizontal className="h-4 w-4" /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => openEdit(customer)}>Edit</DropdownMenuItem><DropdownMenuItem className="text-rose-600" onClick={async () => { if (!isSupabaseConfigured) { setSaveMessage("Supabase belum dikonfigurasi."); return; } const result = await supabase.from("tu_customers").delete().eq("id", customer.id); if (result.error) { setSaveMessage(result.error.message); return; } setCustomers((current) => current.filter((item) => item.id !== customer.id)); }}><Trash2 className="h-4 w-4" /> Hapus</DropdownMenuItem></DropdownMenuContent></DropdownMenu></td></tr>)}</tbody></table>{filteredCustomers.length === 0 && <p className="px-5 py-10 text-center text-sm text-muted-foreground">Belum ada data customer.</p>}</div></CardContent></Card>
 
-      {isFormOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsFormOpen(false); }}><form onSubmit={saveCustomer} className="customer-form-scroll max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-card p-6 text-card-foreground shadow-2xl ring-1 ring-foreground/10"><h2 className="text-lg font-semibold">{editingCustomer ? "Edit Customer" : "Tambah Customer"}</h2><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="space-y-1.5 text-sm"><span className="font-medium">Nama</span><input name="name" required defaultValue={editingCustomer?.name} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" /></label><label className="space-y-1.5 text-sm"><span className="font-medium">No. Hp</span><input name="phone" required defaultValue={editingCustomer?.phone} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" /></label><label className="space-y-1.5 text-sm"><span className="font-medium">Email</span><input name="email" type="email" defaultValue={editingCustomer?.email} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" /></label><label className="space-y-1.5 text-sm"><span className="font-medium">Sumber Customer</span><select name="source" value={customerSource} onChange={(event) => setCustomerSource(event.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Pilih sumber</option>{sourceOptions.map((source) => <option key={source}>{source}</option>)}</select></label>{customerSource === "Lainnya" && <label className="space-y-1.5 text-sm"><span className="font-medium">Sumber Customer Lainnya</span><input name="customSource" required placeholder="Ketik sumber customer" defaultValue={editingCustomer?.source !== "Lainnya" ? editingCustomer?.source : ""} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" /></label>}<label className="space-y-1.5 text-sm sm:col-span-2"><span className="font-medium">Alamat lengkap</span><textarea name="address" required defaultValue={editingCustomer?.address} rows={4} placeholder="Tulis alamat lengkap customer" className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30" /></label><label className="space-y-1.5 text-sm"><span className="font-medium">RT/RW</span><input name="rtRw" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" /></label><label className="space-y-1.5 text-sm"><span className="font-medium">Kelurahan/Desa</span><input name="village" placeholder="Tulis kelurahan/desa" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" /></label><label className="space-y-1.5 text-sm"><span className="font-medium">Kecamatan</span><input name="district" placeholder="Tulis kecamatan" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" /></label><label className="relative space-y-1.5 text-sm"><span className="font-medium">Kota/Kabupaten</span><input name="city" value={city} onChange={(event) => loadCitySuggestions(event.target.value)} autoComplete="off" placeholder="Ketik nama kota/kabupaten" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" />{isLoadingCities && <span className="absolute right-2 top-8 text-xs text-muted-foreground">Memuat...</span>}{citySuggestions.length > 0 && <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-lg">{citySuggestions.map((suggestion) => <button type="button" key={suggestion.code} onClick={() => { setCity(suggestion.name); setCitySuggestions([]); }} className="block w-full rounded px-3 py-2 text-left text-xs hover:bg-muted">{suggestion.name}</button>)}</div>}</label><label className="relative space-y-1.5 text-sm"><span className="font-medium">Provinsi</span><input name="province" value={province} onChange={(event) => loadProvinceSuggestions(event.target.value)} onBlur={() => setTimeout(() => setProvinceSuggestions([]), 150)} autoComplete="off" placeholder="Ketik nama provinsi" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" />{provinceSuggestions.length > 0 && <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-lg">{provinceSuggestions.map((suggestion) => <button type="button" key={suggestion} onMouseDown={(event) => event.preventDefault()} onClick={() => { setProvince(suggestion); setProvinceSuggestions([]); }} className="block w-full rounded px-3 py-2 text-left text-xs hover:bg-muted">{suggestion}</button>)}</div>}</label><label className="space-y-1.5 text-sm"><span className="font-medium">Kode Pos</span><input name="postalCode" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" /></label></div><div className="mt-6 flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>Batal</Button><Button type="submit">Simpan Customer</Button></div></form></div>}
+      {isFormOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsFormOpen(false); }}><form onSubmit={saveCustomer} className="customer-form-scroll max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-card p-6 text-card-foreground shadow-2xl ring-1 ring-foreground/10"><h2 className="text-lg font-semibold">{editingCustomer ? "Edit Customer" : "Tambah Customer"}</h2><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="space-y-1.5 text-sm"><span className="font-medium">Nama</span><input name="name" required defaultValue={editingCustomer?.name} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" /></label><label className="space-y-1.5 text-sm"><span className="font-medium">No. Hp</span><input name="phone" required defaultValue={editingCustomer?.phone} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" /></label><label className="space-y-1.5 text-sm"><span className="font-medium">Email</span><input name="email" type="email" defaultValue={editingCustomer?.email} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" /></label><label className="space-y-1.5 text-sm"><span className="font-medium">Sumber Customer</span><select name="source" value={customerSource} onChange={(event) => setCustomerSource(event.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Pilih sumber</option>{sourceOptions.map((source) => <option key={source}>{source}</option>)}</select></label>{customerSource === "Lainnya" && <label className="space-y-1.5 text-sm"><span className="font-medium">Sumber Customer Lainnya</span><input name="customSource" required placeholder="Ketik sumber customer" defaultValue={editingCustomer?.source !== "Lainnya" ? editingCustomer?.source : ""} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" /></label>}<label className="space-y-1.5 text-sm sm:col-span-2"><span className="font-medium">Alamat lengkap</span><textarea name="address" required defaultValue={editingCustomer?.address} rows={4} placeholder="Tulis alamat lengkap customer" className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30" /></label><label className="space-y-1.5 text-sm"><span className="font-medium">RT/RW</span><input name="rtRw" defaultValue={editingCustomer?.rtRw} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" /></label><label className="space-y-1.5 text-sm"><span className="font-medium">Kelurahan/Desa</span><input name="village" defaultValue={editingCustomer?.village} placeholder="Tulis kelurahan/desa" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" /></label><label className="space-y-1.5 text-sm"><span className="font-medium">Kecamatan</span><input name="district" defaultValue={editingCustomer?.district} placeholder="Tulis kecamatan" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" /></label><label className="relative space-y-1.5 text-sm"><span className="font-medium">Kota/Kabupaten</span><input name="city" value={city} onChange={(event) => loadCitySuggestions(event.target.value)} autoComplete="off" placeholder="Ketik nama kota/kabupaten" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" />{isLoadingCities && <span className="absolute right-2 top-8 text-xs text-muted-foreground">Memuat...</span>}{citySuggestions.length > 0 && <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-lg">{citySuggestions.map((suggestion) => <button type="button" key={suggestion.code} onClick={() => { setCity(suggestion.name); setCitySuggestions([]); }} className="block w-full rounded px-3 py-2 text-left text-xs hover:bg-muted">{suggestion.name}</button>)}</div>}</label><label className="relative space-y-1.5 text-sm"><span className="font-medium">Provinsi</span><input name="province" value={province} onChange={(event) => loadProvinceSuggestions(event.target.value)} onBlur={() => setTimeout(() => setProvinceSuggestions([]), 150)} autoComplete="off" placeholder="Ketik nama provinsi" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" />{provinceSuggestions.length > 0 && <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-lg">{provinceSuggestions.map((suggestion) => <button type="button" key={suggestion} onMouseDown={(event) => event.preventDefault()} onClick={() => { setProvince(suggestion); setProvinceSuggestions([]); }} className="block w-full rounded px-3 py-2 text-left text-xs hover:bg-muted">{suggestion}</button>)}</div>}</label><label className="space-y-1.5 text-sm"><span className="font-medium">Kode Pos</span><input name="postalCode" defaultValue={editingCustomer?.postalCode} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" /></label></div><div className="mt-6 flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>Batal</Button><Button type="submit">Simpan Customer</Button></div></form></div>}
     </div>
   );
 }
