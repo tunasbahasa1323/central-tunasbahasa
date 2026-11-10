@@ -11,8 +11,12 @@ import {
   BookOpen,
   Plane,
   ShoppingBag,
+  FileText,
+  CheckSquare,
+  Tag,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -33,6 +37,15 @@ interface NavGroup {
   label: string;
   items: NavItem[];
 }
+
+const turkiUpSubmenu: NavItem[] = [
+  { name: "Overview", href: "/turkiup", icon: LayoutDashboard },
+  { name: "Order & CRM", href: "/turkiup/orders", icon: ShoppingBag },
+  { name: "Invoice", href: "/turkiup/invoices", icon: FileText },
+  { name: "Monitoring Tugas", href: "/turkiup/operations", icon: CheckSquare },
+  { name: "Data Staff", href: "/turkiup/staff", icon: Users },
+  { name: "Katalog Jasa", href: "/turkiup/catalog", icon: Tag },
+];
 
 const navigation: NavGroup[] = [
   {
@@ -102,6 +115,7 @@ export function Sidebar({ collapsed, onToggle, embedded = false }: SidebarProps)
             {collapsed && <div className="mb-1 mx-auto h-px w-6 bg-sidebar-border" />}
             <div className="space-y-1">
               {group.items.map((item) => {
+                const isTurkiUp = item.name === "TurkiUp";
                 const isActive =
                   item.href === "/"
                     ? pathname === "/"
@@ -119,6 +133,7 @@ export function Sidebar({ collapsed, onToggle, embedded = false }: SidebarProps)
                   >
                     <item.icon className="h-5 w-5 shrink-0" />
                     {!collapsed && <span className="truncate">{item.name}</span>}
+                    {!collapsed && isTurkiUp && <ChevronDown className="ml-auto h-4 w-4" />}
                   </Link>
                 );
 
@@ -133,7 +148,35 @@ export function Sidebar({ collapsed, onToggle, embedded = false }: SidebarProps)
                   );
                 }
 
-                return <div key={item.name}>{linkContent}</div>;
+                return (
+                  <div key={item.name}>
+                    {linkContent}
+                    {isTurkiUp && (
+                      <div className="ml-5 mt-1 space-y-0.5 border-l border-sidebar-border pl-3">
+                        {turkiUpSubmenu.map((subItem) => {
+                          const isSubActive = subItem.href === "/turkiup"
+                            ? pathname === subItem.href
+                            : pathname.startsWith(subItem.href);
+                          return (
+                            <Link
+                              key={subItem.href}
+                              href={subItem.href}
+                              className={cn(
+                                "flex items-center gap-2 rounded-md px-2.5 py-2 text-xs transition-colors",
+                                isSubActive
+                                  ? "bg-sidebar-accent/70 font-medium text-sidebar-primary"
+                                  : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                              )}
+                            >
+                              <subItem.icon className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">{subItem.name}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
               })}
             </div>
           </div>
