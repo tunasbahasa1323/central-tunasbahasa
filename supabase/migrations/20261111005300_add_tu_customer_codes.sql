@@ -15,8 +15,11 @@ where customer.id = numbered_customers.id;
 
 select setval(
   'public.tu_customer_code_seq',
-  greatest(coalesce((select max(nullif(regexp_replace(customer_code, '\\D', '', 'g'), ''))::bigint from public.tu_customers), 0), 0),
-  true
+  coalesce(
+    (select max(nullif(regexp_replace(customer_code, '[^0-9]', '', 'g'), ''))::bigint from public.tu_customers),
+    1
+  ),
+  exists (select 1 from public.tu_customers where customer_code is not null)
 );
 
 alter table public.tu_customers
