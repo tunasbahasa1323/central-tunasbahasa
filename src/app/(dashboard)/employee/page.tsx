@@ -645,11 +645,15 @@ export default function EmployeePage() {
                     }
                     const usedSequences = new Set(
                       (existingCodes ?? [])
-                        .map((row) => String(row.employee_code).match(new RegExp(`^BLB-${yearMonth}-${nextDivision}-(\\d{3})$`))?.[1])
+                        .map((row) => String(row.employee_code).match(new RegExp(`^BLB-${yearMonth}-(?:MG|OP)-(\\d{3})$`))?.[1])
                         .filter(Boolean),
                     );
-                    let nextSequence = 1;
-                    while (usedSequences.has(String(nextSequence).padStart(3, "0"))) nextSequence += 1;
+                    const currentSequence = selectedEmployee.id.match(/^BLB-\d{6}-(?:MG|OP)-(\d{3})$/)?.[1];
+                    let nextSequence = currentSequence ? Number(currentSequence) : 1;
+                    if (!currentSequence || usedSequences.has(String(nextSequence).padStart(3, "0"))) {
+                      nextSequence = 1;
+                      while (usedSequences.has(String(nextSequence).padStart(3, "0"))) nextSequence += 1;
+                    }
                     const nextEmployeeCode = `BLB-${yearMonth}-${nextDivision}-${String(nextSequence).padStart(3, "0")}`;
                     const updates = {
                       employee_code: nextEmployeeCode,
@@ -1040,7 +1044,23 @@ export default function EmployeePage() {
                   .getAll("business-sector")
                   .map(String);
                 const createdAt = new Date().toISOString();
-                const employeeCode = `BLB-${createdAt.slice(0, 7).replace("-", "")}-${roleValue === "Manager" ? "MG" : "OP"}-001`;
+                const divisionCode = roleValue === "Super Admin" || roleValue === "Manager" ? "MG" : "OP";
+                const yearMonth = `${createdAt.slice(0, 7).replace("-", "")}`;
+                const { data: existingCodes, error: codeError } = await supabase
+                  .from("cm_employees")
+                  .select("employee_code");
+                if (codeError) {
+                  setSaveEmployeeMessage({ type: "error", text: codeError.message });
+                  return;
+                }
+                const usedSequences = new Set(
+                  (existingCodes ?? [])
+                    .map((row) => String(row.employee_code).match(new RegExp(`^BLB-${yearMonth}-(?:MG|OP)-(\\d{3})$`))?.[1])
+                    .filter(Boolean),
+                );
+                let nextSequence = 1;
+                while (usedSequences.has(String(nextSequence).padStart(3, "0"))) nextSequence += 1;
+                const employeeCode = `BLB-${yearMonth}-${divisionCode}-${String(nextSequence).padStart(3, "0")}`;
 
                 setIsSavingEmployee(true);
                 const { data: insertedEmployee, error: employeeError } =
