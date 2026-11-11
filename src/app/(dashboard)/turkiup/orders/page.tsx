@@ -91,15 +91,14 @@ export default function TurkiUpOrdersPage() {
     pdf.text(`Status: ${statusConfig[selectedOrder.status].label}`, 20, 48);
     pdf.text(`Pelanggan: ${selectedOrder.customer}`, 20, 62);
     pdf.text(`Nomor WA: ${selectedOrder.customerPhone}`, 20, 72);
-    pdf.text(`Staf Pengerjaan: ${selectedOrder.staff}`, 20, 82);
-    pdf.text(`Tanggal Order: ${selectedOrder.date}`, 20, 92);
+    pdf.text(`Tanggal Order: ${selectedOrder.date}`, 20, 82);
     pdf.setFontSize(11);
     selectedOrder.items.forEach((item, index) => {
-      const y = 108 + index * 12;
+      const y = 98 + index * 12;
       pdf.text(`${index + 1}. ${item.service} (${item.quantity} x ${formatRupiah(item.amount)})`, 20, y);
       pdf.text(`Total: ${formatRupiah(Math.max(0, item.quantity * item.amount - item.discount))}`, 145, y);
     });
-    const totalY = 108 + selectedOrder.items.length * 12 + 8;
+    const totalY = 98 + selectedOrder.items.length * 12 + 8;
     pdf.text(`DP Diterima: ${selectedOrder.dp ? formatRupiah(selectedOrder.dp) : "-"}`, 20, totalY);
     pdf.setFontSize(14);
     pdf.text(`Total Tagihan: ${formatRupiah(calculateOrderTotal(selectedOrder))}`, 20, totalY + 16);
