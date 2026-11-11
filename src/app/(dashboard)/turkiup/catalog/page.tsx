@@ -38,6 +38,8 @@ export default function TurkiUpCatalogPage() {
   const [editTarget, setEditTarget] = useState<Service | null>(null);
   const [saveMessage, setSaveMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [category, setCategory] = useState("");
+  const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
 
   function mapService(row: ServiceRow): Service {
     return { id: row.id, serviceCode: row.service_code, name: row.name, description: row.description, basePrice: row.base_price, isActive: row.is_active, category: row.category };
@@ -75,13 +77,19 @@ export default function TurkiUpCatalogPage() {
 
   function openEdit(service: Service) {
     setEditTarget(service);
+    setCategory(service.category);
+    setIsCategoryMenuOpen(false);
     setIsFormOpen(true);
   }
 
   function openCreate() {
     setEditTarget(null);
+    setCategory("");
+    setIsCategoryMenuOpen(false);
     setIsFormOpen(true);
   }
+
+  const categorySuggestions = [...new Set(services.map((service) => service.category.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "id"));
 
   const categories = [...new Set(services.map((s) => s.category))];
 
@@ -170,16 +178,19 @@ export default function TurkiUpCatalogPage() {
             {saveMessage && <p className="mt-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">{saveMessage}</p>}
             <p className="mt-1 text-sm text-muted-foreground">Isi detail layanan yang akan ditawarkan TurkiUp.</p>
             <div className="mt-5 space-y-4">
-              {[
-                { label: "Nama layanan", name: "name", placeholder: "Contoh: Jasa Penerjemahan Dokumen", defaultValue: editTarget?.name },
-                { label: "Kategori", name: "category", placeholder: "Contoh: Penerjemahan", defaultValue: editTarget?.category },
-                { label: "Harga jual mulai dari (Rp)", name: "basePrice", placeholder: "Contoh: 150.000", defaultValue: editTarget?.basePrice ? formatPriceInput(editTarget.basePrice.toString()) : "" },
-              ].map((f) => (
-                <label key={f.name} className="block space-y-1.5 text-sm">
-                  <span className="font-medium">{f.label}</span>
-                  <input name={f.name} placeholder={f.placeholder} defaultValue={f.defaultValue} onInput={f.name === "basePrice" ? (event) => { event.currentTarget.value = formatPriceInput(event.currentTarget.value); } : undefined} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30" />
-                </label>
-              ))}
+              <label className="block space-y-1.5 text-sm">
+                <span className="font-medium">Nama layanan</span>
+                <input name="name" placeholder="Contoh: Jasa Penerjemahan Dokumen" defaultValue={editTarget?.name} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30" />
+              </label>
+              <label className="relative block space-y-1.5 text-sm">
+                <span className="font-medium">Kategori</span>
+                <input name="category" value={category} onChange={(event) => setCategory(event.target.value)} onFocus={() => setIsCategoryMenuOpen(true)} onBlur={() => setTimeout(() => setIsCategoryMenuOpen(false), 150)} placeholder="Contoh: Penerjemahan" autoComplete="off" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30" />
+                {isCategoryMenuOpen && categorySuggestions.filter((suggestion) => suggestion.toLowerCase().includes(category.toLowerCase())).length > 0 && <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-lg">{categorySuggestions.filter((suggestion) => suggestion.toLowerCase().includes(category.toLowerCase())).map((suggestion) => <button type="button" key={suggestion} onMouseDown={(event) => event.preventDefault()} onClick={() => { setCategory(suggestion); setIsCategoryMenuOpen(false); }} className="block w-full rounded px-3 py-2 text-left text-xs hover:bg-muted">{suggestion}</button>)}</div>}
+              </label>
+              <label className="block space-y-1.5 text-sm">
+                <span className="font-medium">Harga jual mulai dari (Rp)</span>
+                <input name="basePrice" placeholder="Contoh: 150.000" defaultValue={editTarget?.basePrice ? formatPriceInput(editTarget.basePrice.toString()) : ""} onInput={(event) => { event.currentTarget.value = formatPriceInput(event.currentTarget.value); }} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30" />
+              </label>
               <label className="block space-y-1.5 text-sm">
                 <span className="font-medium">Deskripsi</span>
                 <textarea name="description" defaultValue={editTarget?.description} rows={3} placeholder="Deskripsi singkat layanan" className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30" />
@@ -187,7 +198,7 @@ export default function TurkiUpCatalogPage() {
             </div>
             <div className="mt-5 flex justify-end gap-2 border-t border-border pt-4">
               <Button variant="outline" onClick={() => setIsFormOpen(false)}>Batal</Button>
-              <Button disabled={isSaving} onClick={async () => { setIsSaving(true); setSaveMessage(""); const name = (document.querySelector('input[name="name"]') as HTMLInputElement)?.value.trim(); const category = (document.querySelector('input[name="category"]') as HTMLInputElement)?.value.trim(); const basePrice = Number((document.querySelector('input[name="basePrice"]') as HTMLInputElement)?.value.replace(/\D/g, "") || 0); const description = (document.querySelector('textarea[name="description"]') as HTMLTextAreaElement)?.value.trim(); if (!name || !isSupabaseConfigured) { setSaveMessage(!isSupabaseConfigured ? "Supabase belum dikonfigurasi." : "Nama layanan wajib diisi."); setIsSaving(false); return; } const payload = { name, category, base_price: basePrice, description, updated_at: new Date().toISOString() }; const result = editTarget ? await supabase.from("tu_services").update(payload).eq("id", editTarget.id).select("*").single() : await supabase.from("tu_services").insert(payload).select("*").single(); if (result.error) { setSaveMessage(`Gagal menyimpan layanan: ${result.error.message}`); setIsSaving(false); return; } const saved = mapService(result.data as ServiceRow); setServices((current) => editTarget ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]); setSaveMessage(editTarget ? "Perubahan layanan berhasil disimpan." : "Layanan berhasil ditambahkan."); setIsSaving(false); setIsFormOpen(false); }}>{isSaving ? "Menyimpan..." : editTarget ? "Simpan Perubahan" : "Tambah Jasa"}</Button>
+              <Button disabled={isSaving} onClick={async () => { setIsSaving(true); setSaveMessage(""); const name = (document.querySelector('input[name="name"]') as HTMLInputElement)?.value.trim(); const categoryValue = category.trim(); const basePrice = Number((document.querySelector('input[name="basePrice"]') as HTMLInputElement)?.value.replace(/\D/g, "") || 0); const description = (document.querySelector('textarea[name="description"]') as HTMLTextAreaElement)?.value.trim(); if (!name || !isSupabaseConfigured) { setSaveMessage(!isSupabaseConfigured ? "Supabase belum dikonfigurasi." : "Nama layanan wajib diisi."); setIsSaving(false); return; } const payload = { name, category: categoryValue, base_price: basePrice, description, updated_at: new Date().toISOString() }; const result = editTarget ? await supabase.from("tu_services").update(payload).eq("id", editTarget.id).select("*").single() : await supabase.from("tu_services").insert(payload).select("*").single(); if (result.error) { setSaveMessage(`Gagal menyimpan layanan: ${result.error.message}`); setIsSaving(false); return; } const saved = mapService(result.data as ServiceRow); setServices((current) => editTarget ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]); setSaveMessage(editTarget ? "Perubahan layanan berhasil disimpan." : "Layanan berhasil ditambahkan."); setIsSaving(false); setIsFormOpen(false); }}>{isSaving ? "Menyimpan..." : editTarget ? "Simpan Perubahan" : "Tambah Jasa"}</Button>
             </div>
           </div>
         </div>
