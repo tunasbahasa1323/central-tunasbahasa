@@ -34,7 +34,9 @@ const statusConfig = {
 };
 
 export default function TurkiUpInvoicesPage() {
+  type PaymentRecord = { amount: number; paidAt: string; paymentType: string; proofUrl: string | null; proofType: string | null };
   type Invoice = {
+    databaseId: string;
     orderId: string;
     customer: string;
     customerPhone: string;
@@ -51,6 +53,12 @@ export default function TurkiUpInvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [paymentInvoice, setPaymentInvoice] = useState<Invoice | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentOption, setPaymentOption] = useState<"custom" | "half" | "full">("custom");
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [paymentProof, setPaymentProof] = useState<File | null>(null);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [previewProof, setPreviewProof] = useState<{ url: string; isPdf: boolean } | null>(null);
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
@@ -69,6 +77,7 @@ export default function TurkiUpInvoicesPage() {
       setInvoices((result.data ?? []).map((row) => {
         const items = row.tu_order_items ?? [];
         return {
+          databaseId: row.id,
           orderId: row.order_code,
           customer: row.customer_name,
           customerPhone: row.customer_phone,
@@ -100,17 +109,60 @@ export default function TurkiUpInvoicesPage() {
     return digits ? new Intl.NumberFormat("id-ID").format(Number(digits)) : "";
   }
 
-  function recordPayment() {
-    if (!paymentInvoice) return;
+  async function loadPaymentHistory(invoice: Invoice) {
+    if (!isSupabaseConfigured) return;
+    setIsLoadingHistory(true);
+    const result = await supabase.from("tu_order_payments").select("amount, paid_at, payment_type, proof_url").eq("order_id", invoice.databaseId).order("paid_at", { ascending: false });
+    if (result.error) {
+      setLoadError(`Gagal memuat riwayat pembayaran: ${result.error.message}`);
+      setPaymentHistory([]);
+    } else {
+      setPaymentHistory((result.data ?? []).map((payment) => ({ amount: payment.amount, paidAt: payment.paid_at, paymentType: payment.payment_type, proofUrl: payment.proof_url, proofType: payment.proof_url?.toLowerCase().includes(".pdf") || payment.proof_url?.toLowerCase().includes("/raw/upload/") ? "application/pdf" : "image/*" })));
+    }
+    setIsLoadingHistory(false);
+  }
+
+  async function recordPayment() {
+    if (!paymentInvoice || !isSupabaseConfigured) return;
     const payment = Number(paymentAmount.replace(/\D/g, ""));
     if (!payment) return;
 
     const totalPaidAmount = Math.min(paymentInvoice.amount, paymentInvoice.dp + payment);
     const nextStatus: PaymentStatus = totalPaidAmount >= paymentInvoice.amount ? "paid" : "partial";
-    void supabase.from("tu_orders").update({ dp: totalPaidAmount, status: nextStatus, updated_at: new Date().toISOString() }).eq("order_code", paymentInvoice.orderId);
-    setInvoices((current) => current.map((invoice) => invoice.orderId !== paymentInvoice.orderId ? invoice : { ...invoice, dp: totalPaidAmount, status: nextStatus }));
+    setIsSavingPayment(true);
+    let proofUrl: string | null = null;
+    let proofPublicId: string | null = null;
+    if (paymentProof) {
+      const formData = new FormData();
+      formData.append("file", paymentProof);
+      const uploadResult = await fetch("/api/cloudinary/upload", { method: "POST", body: formData });
+      const uploadData = await uploadResult.json();
+      if (!uploadResult.ok) {
+        setLoadError(uploadData.error ?? "Gagal mengunggah bukti pembayaran.");
+        setIsSavingPayment(false);
+        return;
+      }
+      proofUrl = uploadData.secureUrl;
+      proofPublicId = uploadData.publicId;
+    }
+    const paymentResult = await supabase.from("tu_order_payments").insert({ order_id: paymentInvoice.databaseId, amount: payment, payment_type: nextStatus === "paid" ? "paid" : "partial", paid_at: new Date().toISOString(), proof_url: proofUrl, proof_public_id: proofPublicId }).select("id").single();
+    if (paymentResult.error) {
+      setLoadError(`Gagal menyimpan riwayat pembayaran: ${paymentResult.error.message}`);
+      setIsSavingPayment(false);
+      return;
+    }
+    const result = await supabase.from("tu_orders").update({ dp: totalPaidAmount, status: nextStatus, updated_at: new Date().toISOString() }).eq("id", paymentInvoice.databaseId).select("order_code, dp, status").single();
+    if (result.error) {
+      setLoadError(`Gagal menyimpan pembayaran: ${result.error.message}`);
+      setIsSavingPayment(false);
+      return;
+    }
+    setInvoices((current) => current.map((invoice) => invoice.orderId !== paymentInvoice.orderId ? invoice : { ...invoice, dp: result.data.dp, status: result.data.status as PaymentStatus }));
     setPaymentInvoice(null);
     setPaymentAmount("");
+    setPaymentOption("custom");
+    setPaymentProof(null);
+    setIsSavingPayment(false);
   }
 
   return (
@@ -214,7 +266,7 @@ export default function TurkiUpInvoicesPage() {
                             <MoreHorizontal className="h-4 w-4" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setSelectedInvoice(inv)}>
+                            <DropdownMenuItem onClick={() => { setSelectedInvoice(inv); void loadPaymentHistory(inv); }}>
                               <Eye className="h-4 w-4" /> Lihat invoice
                             </DropdownMenuItem>
                             <DropdownMenuItem>
@@ -224,7 +276,7 @@ export default function TurkiUpInvoicesPage() {
                               <FileText className="h-4 w-4" /> Unduh PDF
                             </DropdownMenuItem>
                             {inv.status !== "paid" && (
-                              <DropdownMenuItem onClick={() => { setPaymentInvoice(inv); setPaymentAmount(""); }}>
+                              <DropdownMenuItem onClick={() => { setPaymentInvoice(inv); setPaymentAmount(""); setPaymentOption("custom"); }}>
                                 <CheckCircle2 className="h-4 w-4" /> Catat Pembayaran
                               </DropdownMenuItem>
                             )}
@@ -255,14 +307,50 @@ export default function TurkiUpInvoicesPage() {
               <div className="flex justify-between"><span className="text-muted-foreground">Total tagihan</span><span className="font-medium">{formatRupiah(paymentInvoice.amount)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Sudah dibayar</span><span className="font-medium text-emerald-600">{formatRupiah(paymentInvoice.dp)}</span></div>
               <div className="flex justify-between border-b border-border pb-3"><span className="text-muted-foreground">Sisa tagihan</span><span className="font-medium text-rose-600">{formatRupiah(Math.max(0, paymentInvoice.amount - paymentInvoice.dp))}</span></div>
+              <div>
+                <span className="mb-1.5 block text-xs font-medium">Pilihan pembayaran</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: "half" as const, label: "DP 50%", amount: paymentInvoice.amount * 0.5 },
+                    { value: "full" as const, label: "Lunas", amount: paymentInvoice.amount },
+                    { value: "custom" as const, label: "Nominal manual", amount: null },
+                  ].map((option) => (
+                    <button type="button" key={option.value} onClick={() => { setPaymentOption(option.value); if (option.amount !== null) setPaymentAmount(formatPaymentInput(String(Math.max(0, option.amount - paymentInvoice.dp)))); }} className={`rounded-md border px-2 py-2 text-xs font-medium transition-colors ${paymentOption === option.value ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"}`}>
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <label className="block">
                 <span className="mb-1.5 block text-xs font-medium">Nominal pembayaran</span>
-                <input value={paymentAmount} onChange={(e) => setPaymentAmount(formatPaymentInput(e.target.value))} placeholder="Masukkan nominal" inputMode="numeric" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30" />
+                <input value={paymentAmount} onChange={(e) => { setPaymentOption("custom"); setPaymentAmount(formatPaymentInput(e.target.value)); }} placeholder="Masukkan nominal" inputMode="numeric" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30" />
               </label>
+                            <label className="block">
+                              <span className="mb-1.5 block text-xs font-medium">Bukti pembayaran (opsional)</span>
+                              <input type="file" accept="image/*,application/pdf" onChange={(event) => setPaymentProof(event.target.files?.[0] ?? null)} className="block h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs file:mr-3 file:rounded file:border-0 file:bg-primary/10 file:px-2 file:py-1 file:text-xs file:font-medium" />
+                              <span className="mt-1 block text-[11px] text-muted-foreground">JPG, PNG, atau PDF. File disimpan ke Cloudinary.</span>
+                            </label>
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setPaymentInvoice(null)}>Batal</Button>
-              <Button onClick={recordPayment} disabled={!paymentAmount}>Simpan Pembayaran</Button>
+              <Button onClick={() => void recordPayment()} disabled={!paymentAmount || isSavingPayment}>{isSavingPayment ? "Menyimpan..." : "Simpan Pembayaran"}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {previewProof && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) setPreviewProof(null); }}>
+          <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl bg-card p-4 text-card-foreground shadow-2xl ring-1 ring-foreground/10">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <p className="font-semibold">Preview Bukti Pembayaran</p>
+              <div className="flex items-center gap-2">
+                <a href={previewProof.url} target="_blank" rel="noreferrer" className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted">Buka Tab Baru</a>
+                <Button variant="outline" size="sm" onClick={() => setPreviewProof(null)}>Tutup</Button>
+              </div>
+            </div>
+            <div className="mt-4 flex min-h-[300px] flex-1 items-center justify-center overflow-auto rounded-lg bg-muted/40 p-3">
+              {previewProof.isPdf ? <iframe src={previewProof.url} title="Preview bukti pembayaran" className="h-[70vh] w-full rounded-md border border-border bg-background" /> : <img src={previewProof.url} alt="Bukti pembayaran" className="max-h-[70vh] max-w-full rounded-md object-contain" />}
             </div>
           </div>
         </div>
@@ -296,8 +384,16 @@ export default function TurkiUpInvoicesPage() {
                 <p className="text-xs text-muted-foreground">Total Tagihan</p>
                 <p className="mt-1 text-xl font-bold text-primary">{formatRupiah(selectedInvoice.amount)}</p>
                 {selectedInvoice.dp > 0 && (
-                  <p className="mt-0.5 text-xs text-emerald-600">DP diterima: {formatRupiah(selectedInvoice.dp)} · Sisa: {formatRupiah(selectedInvoice.amount - selectedInvoice.dp)}</p>
+                  <p className="mt-0.5 text-xs text-emerald-600">Total dibayar: {formatRupiah(selectedInvoice.dp)} · Sisa: {formatRupiah(selectedInvoice.amount - selectedInvoice.dp)}</p>
                 )}
+              </div>
+              <div className="sm:col-span-2 rounded-lg border border-border px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-muted-foreground">Riwayat Pembayaran</p>
+                  {isLoadingHistory && <span className="text-xs text-muted-foreground">Memuat...</span>}
+                </div>
+                {!isLoadingHistory && paymentHistory.length === 0 && <p className="mt-2 text-xs text-muted-foreground">Belum ada riwayat pembayaran.</p>}
+                {!isLoadingHistory && paymentHistory.length > 0 && <div className="mt-2 divide-y divide-border">{paymentHistory.map((payment, index) => <div key={`${payment.paidAt}-${index}`} className="flex items-center justify-between gap-3 py-2 text-xs"><div><p className="font-medium">{payment.paymentType === "paid" ? "Pelunasan" : "DP/Sebagian"}</p><p className="text-muted-foreground">{new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(new Date(payment.paidAt))}</p></div><div className="text-right"><p className="font-semibold text-emerald-600">{formatRupiah(payment.amount)}</p>{payment.proofUrl ? <button type="button" onClick={() => { const proofUrl = payment.proofUrl; if (proofUrl) { const isPdf = proofUrl.toLowerCase().includes(".pdf") || proofUrl.toLowerCase().includes("/raw/upload/"); const previewUrl = `/api/cloudinary/proof?url=${encodeURIComponent(proofUrl)}&type=${isPdf ? "pdf" : "image"}`; setPreviewProof({ url: previewUrl, isPdf }); } }} className="text-primary hover:underline">Lihat bukti</button> : <span className="text-muted-foreground">Tanpa bukti</span>}</div></div>)}</div>}
               </div>
             </div>
             <div className="mt-5 flex justify-end gap-2">
