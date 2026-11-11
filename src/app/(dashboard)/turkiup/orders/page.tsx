@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
+import QRCode from "qrcode";
 import {
   Plus,
   Search,
@@ -80,11 +81,14 @@ export default function TurkiUpOrdersPage() {
     setOrderItems((items) => items.length === 1 ? items : items.filter((item) => item.id !== id));
   }
 
-  function downloadInvoicePdf() {
+  async function downloadInvoicePdf() {
     if (!selectedOrder) return;
     const pdf = new jsPDF();
+    const verificationUrl = `${window.location.origin}/turkiup/orders?invoice=${encodeURIComponent(selectedOrder.id)}`;
+    const qrDataUrl = await QRCode.toDataURL(verificationUrl, { margin: 1, width: 160 });
     pdf.setFontSize(18);
     pdf.text("Invoice TurkiUp", 20, 25);
+    pdf.addImage(qrDataUrl, "PNG", 155, 15, 35, 35);
     pdf.setFontSize(13);
     pdf.text(selectedOrder.id, 20, 35);
     pdf.setFontSize(11);
@@ -102,6 +106,8 @@ export default function TurkiUpOrdersPage() {
     pdf.text(`DP Diterima: ${selectedOrder.dp ? formatRupiah(selectedOrder.dp) : "-"}`, 20, totalY);
     pdf.setFontSize(14);
     pdf.text(`Total Tagihan: ${formatRupiah(calculateOrderTotal(selectedOrder))}`, 20, totalY + 16);
+    pdf.setFontSize(8);
+    pdf.text("Scan untuk verifikasi invoice", 155, 53);
     pdf.save(`${selectedOrder.id}.pdf`);
   }
 
