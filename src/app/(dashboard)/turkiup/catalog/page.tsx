@@ -76,6 +76,7 @@ export default function TurkiUpCatalogPage() {
   }
 
   function openEdit(service: Service) {
+    setSaveMessage("");
     setEditTarget(service);
     setCategory(service.category);
     setIsCategoryMenuOpen(false);
@@ -83,6 +84,7 @@ export default function TurkiUpCatalogPage() {
   }
 
   function openCreate() {
+    setSaveMessage("");
     setEditTarget(null);
     setCategory("");
     setIsCategoryMenuOpen(false);
