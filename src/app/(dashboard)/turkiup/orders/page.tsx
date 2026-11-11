@@ -29,16 +29,16 @@ const formatRupiah = (v: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(v);
 
 type PaymentStatus = "paid" | "partial" | "unpaid";
-type OrderItem = { service: string; quantity: number; amount: number; discount: number };
+type OrderItem = { service: string; quantity: number; amount: number; discount: number; staff: string; staffInitials: string };
 type Order = { id: string; customer: string; customerPhone: string; items: OrderItem[]; dp: number; status: PaymentStatus; date: string; staff: string; staffInitials: string };
 
 const orders: Order[] = [
-  { id: "TRK-202611-008", customer: "PT Karya Maju", customerPhone: "08123456789", items: [{ service: "Jasa Penerjemahan Dokumen", quantity: 2, amount: 750000, discount: 0 }, { service: "Legalisasi Dokumen", quantity: 1, amount: 500000, discount: 50000 }], dp: 0, status: "paid", date: "10 Nov 2026", staff: "Diana Putri", staffInitials: "DP" },
-  { id: "TRK-202611-007", customer: "Yayasan Al-Hikmah", customerPhone: "08987654321", items: [{ service: "Kelas Bahasa Turki Privat", quantity: 10, amount: 250000, discount: 0 }], dp: 1000000, status: "partial", date: "09 Nov 2026", staff: "M Galih Rakasiwi", staffInitials: "MG" },
-  { id: "TRK-202611-006", customer: "CV Nusantara Media", customerPhone: "08567890123", items: [{ service: "Interpretasi Meeting Online", quantity: 1, amount: 750000, discount: 0 }], dp: 0, status: "unpaid", date: "08 Nov 2026", staff: "Windi Alfira", staffInitials: "WA" },
-  { id: "TRK-202611-005", customer: "Dr. Andi Surya", customerPhone: "08234567890", items: [{ service: "Jasa Penerjemahan Dokumen", quantity: 8, amount: 150000, discount: 0 }], dp: 0, status: "paid", date: "07 Nov 2026", staff: "Diana Putri", staffInitials: "DP" },
-  { id: "TRK-202611-004", customer: "RSUD Ciawi Bogor", customerPhone: "08345678901", items: [{ service: "Pelatihan Bahasa Turki Grup", quantity: 28, amount: 150000, discount: 0 }], dp: 0, status: "paid", date: "06 Nov 2026", staff: "M Galih Rakasiwi", staffInitials: "MG" },
-  { id: "TRK-202611-003", customer: "Bapak Hendra Kurniawan", customerPhone: "08456789012", items: [{ service: "Kelas Bahasa Turki Privat", quantity: 10, amount: 250000, discount: 0 }], dp: 0, status: "paid", date: "04 Nov 2026", staff: "Diana Putri", staffInitials: "DP" },
+  { id: "TRK-202611-008", customer: "PT Karya Maju", customerPhone: "08123456789", items: [{ service: "Jasa Penerjemahan Dokumen", quantity: 2, amount: 750000, discount: 0, staff: "Diana Putri", staffInitials: "DP" }, { service: "Legalisasi Dokumen", quantity: 1, amount: 500000, discount: 50000, staff: "M Galih Rakasiwi", staffInitials: "MG" }], dp: 0, status: "paid", date: "10 Nov 2026", staff: "Diana Putri", staffInitials: "DP" },
+  { id: "TRK-202611-007", customer: "Yayasan Al-Hikmah", customerPhone: "08987654321", items: [{ service: "Kelas Bahasa Turki Privat", quantity: 10, amount: 250000, discount: 0, staff: "M Galih Rakasiwi", staffInitials: "MG" }], dp: 1000000, status: "partial", date: "09 Nov 2026", staff: "M Galih Rakasiwi", staffInitials: "MG" },
+  { id: "TRK-202611-006", customer: "CV Nusantara Media", customerPhone: "08567890123", items: [{ service: "Interpretasi Meeting Online", quantity: 1, amount: 750000, discount: 0, staff: "Windi Alfira", staffInitials: "WA" }], dp: 0, status: "unpaid", date: "08 Nov 2026", staff: "Windi Alfira", staffInitials: "WA" },
+  { id: "TRK-202611-005", customer: "Dr. Andi Surya", customerPhone: "08234567890", items: [{ service: "Jasa Penerjemahan Dokumen", quantity: 8, amount: 150000, discount: 0, staff: "Diana Putri", staffInitials: "DP" }], dp: 0, status: "paid", date: "07 Nov 2026", staff: "Diana Putri", staffInitials: "DP" },
+  { id: "TRK-202611-004", customer: "RSUD Ciawi Bogor", customerPhone: "08345678901", items: [{ service: "Pelatihan Bahasa Turki Grup", quantity: 28, amount: 150000, discount: 0, staff: "M Galih Rakasiwi", staffInitials: "MG" }], dp: 0, status: "paid", date: "06 Nov 2026", staff: "M Galih Rakasiwi", staffInitials: "MG" },
+  { id: "TRK-202611-003", customer: "Bapak Hendra Kurniawan", customerPhone: "08456789012", items: [{ service: "Kelas Bahasa Turki Privat", quantity: 10, amount: 250000, discount: 0, staff: "Diana Putri", staffInitials: "DP" }], dp: 0, status: "paid", date: "04 Nov 2026", staff: "Diana Putri", staffInitials: "DP" },
 ];
 
 function calculateOrderTotal(order: Order) {
@@ -211,12 +211,7 @@ export default function TurkiUpOrdersPage() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{orderServiceSummary(order)}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="bg-primary/10 text-[10px] text-primary">{order.staffInitials}</AvatarFallback>
-                        </Avatar>
-                        <span className="text-xs">{order.staff}</span>
-                      </div>
+                      <div className="space-y-1.5">{order.items.map((item) => <div key={item.service} className="flex items-center gap-2"><Avatar className="h-6 w-6"><AvatarFallback className="bg-primary/10 text-[10px] text-primary">{item.staffInitials}</AvatarFallback></Avatar><span className="text-xs">{item.staff}</span></div>)}</div>
                     </td>
                     <td className="px-4 py-3 font-medium">{formatRupiah(calculateOrderTotal(order))}</td>
                     <td className="px-4 py-3">
@@ -278,7 +273,7 @@ export default function TurkiUpOrdersPage() {
               ))}
               <div className="sm:col-span-2 rounded-lg border border-border bg-muted/30 px-4 py-3">
                 <p className="mb-2 text-xs font-medium text-muted-foreground">Rincian Layanan</p>
-                <div className="space-y-2">{selectedOrder.items.map((item) => <div key={item.service} className="flex items-start justify-between gap-4 text-sm"><span>{item.service}<span className="block text-xs text-muted-foreground">{item.quantity} x {formatRupiah(item.amount)}{item.discount ? ` · Diskon ${formatRupiah(item.discount)}` : ""}</span></span><span className="shrink-0 font-medium">{formatRupiah(Math.max(0, item.quantity * item.amount - item.discount))}</span></div>)}</div>
+                <div className="space-y-2">{selectedOrder.items.map((item) => <div key={item.service} className="flex items-start justify-between gap-4 text-sm"><span>{item.service}<span className="block text-xs text-muted-foreground">{item.quantity} x {formatRupiah(item.amount)}{item.discount ? ` · Diskon ${formatRupiah(item.discount)}` : ""} · {item.staff}</span></span><span className="shrink-0 font-medium">{formatRupiah(Math.max(0, item.quantity * item.amount - item.discount))}</span></div>)}</div>
                 <div className="mt-3 flex items-center justify-between border-t border-border pt-3"><p className="text-xs text-muted-foreground">Total Tagihan</p><p className="text-xl font-bold text-primary">{formatRupiah(calculateOrderTotal(selectedOrder))}</p></div>
               </div>
             </div>
