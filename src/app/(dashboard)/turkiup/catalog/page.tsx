@@ -26,17 +26,9 @@ const formatRupiah = (v: number) =>
 type Service = { id: string; serviceCode: string; name: string; description: string; basePrice: number; isActive: boolean; category: string };
 type ServiceRow = { id: string; service_code: string; name: string; description: string; base_price: number; is_active: boolean; category: string };
 
-const initialServices: Service[] = [
-  { id: "", serviceCode: "SVC-001", name: "Jasa Penerjemahan Dokumen", description: "Penerjemahan dokumen resmi Turki-Indonesia per halaman", basePrice: 150000, isActive: true, category: "Penerjemahan" },
-  { id: "", serviceCode: "SVC-002", name: "Kelas Bahasa Turki Privat", description: "Kelas privat 1-on-1, 1 jam sesi", basePrice: 250000, isActive: true, category: "Kelas Privat" },
-  { id: "", serviceCode: "SVC-003", name: "Interpretasi Meeting Online", description: "Interpretasi simultaneous untuk meeting virtual", basePrice: 500000, isActive: true, category: "Interpretasi" },
-  { id: "", serviceCode: "SVC-004", name: "Pelatihan Bahasa Turki Grup", description: "Kelas grup 5-10 orang, 1 jam sesi, harga per orang", basePrice: 150000, isActive: true, category: "Kelas Grup" },
-  { id: "", serviceCode: "SVC-005", name: "Konsultasi Bisnis Turki", description: "Konsultasi kebutuhan ekspansi bisnis ke Turki", basePrice: 750000, isActive: false, category: "Konsultasi" },
-  { id: "", serviceCode: "SVC-006", name: "Penerjemahan Konten Media", description: "Subtitle, caption, artikel sosial media Turki-Indonesia", basePrice: 100000, isActive: true, category: "Penerjemahan" },
-];
 
 export default function TurkiUpCatalogPage() {
-  const [services, setServices] = useState<Service[]>(initialServices);
+  const [services, setServices] = useState<Service[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Service | null>(null);
   const [saveMessage, setSaveMessage] = useState("");
