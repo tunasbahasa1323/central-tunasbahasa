@@ -41,6 +41,12 @@ export default function TurkiUpCatalogPage() {
   const [category, setCategory] = useState("");
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
 
+  useEffect(() => {
+    if (!saveMessage) return;
+    const timeoutId = window.setTimeout(() => setSaveMessage(""), 4000);
+    return () => window.clearTimeout(timeoutId);
+  }, [saveMessage]);
+
   function mapService(row: ServiceRow): Service {
     return { id: row.id, serviceCode: row.service_code, name: row.name, description: row.description, basePrice: row.base_price, isActive: row.is_active, category: row.category };
   }
