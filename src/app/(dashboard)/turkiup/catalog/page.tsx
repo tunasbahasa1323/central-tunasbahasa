@@ -37,6 +37,7 @@ export default function TurkiUpCatalogPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Service | null>(null);
   const [saveMessage, setSaveMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   function mapService(row: ServiceRow): Service {
     return { id: row.id, serviceCode: row.service_code, name: row.name, description: row.description, basePrice: row.base_price, isActive: row.is_active, category: row.category };
@@ -59,15 +60,17 @@ export default function TurkiUpCatalogPage() {
     const service = services.find((item) => item.id === id);
     if (!service || !isSupabaseConfigured) return;
     const result = await supabase.from("tu_services").update({ is_active: !service.isActive, updated_at: new Date().toISOString() }).eq("id", id).select("*").single();
-    if (result.error) { setSaveMessage(result.error.message); return; }
+    if (result.error) { setSaveMessage(`Gagal memperbarui status: ${result.error.message}`); return; }
     setServices((prev) => prev.map((item) => item.id === id ? mapService(result.data as ServiceRow) : item));
+    setSaveMessage(`Status layanan ${service.serviceCode} berhasil diperbarui.`);
   }
 
   async function deleteService(id: string) {
     if (!isSupabaseConfigured) return;
     const result = await supabase.from("tu_services").delete().eq("id", id);
-    if (result.error) { setSaveMessage(result.error.message); return; }
+    if (result.error) { setSaveMessage(`Gagal menghapus layanan: ${result.error.message}`); return; }
     setServices((prev) => prev.filter((item) => item.id !== id));
+    setSaveMessage("Layanan berhasil dihapus.");
   }
 
   function openEdit(service: Service) {
@@ -94,6 +97,8 @@ export default function TurkiUpCatalogPage() {
           <Plus className="h-4 w-4" /> Tambah Jasa
         </Button>
       </div>
+
+      {saveMessage && !isFormOpen && <div role="status" className="rounded-md border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">{saveMessage}</div>}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
@@ -162,6 +167,7 @@ export default function TurkiUpCatalogPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" onMouseDown={(e) => { if (e.target === e.currentTarget) setIsFormOpen(false); }}>
           <div className="w-full max-w-lg rounded-xl bg-card p-6 text-card-foreground shadow-2xl ring-1 ring-foreground/10">
             <h2 className="text-lg font-semibold">{editTarget ? "Edit Jasa" : "Tambah Jasa Baru"}</h2>
+            {saveMessage && <p className="mt-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">{saveMessage}</p>}
             <p className="mt-1 text-sm text-muted-foreground">Isi detail layanan yang akan ditawarkan TurkiUp.</p>
             <div className="mt-5 space-y-4">
               {[
@@ -181,7 +187,7 @@ export default function TurkiUpCatalogPage() {
             </div>
             <div className="mt-5 flex justify-end gap-2 border-t border-border pt-4">
               <Button variant="outline" onClick={() => setIsFormOpen(false)}>Batal</Button>
-              <Button onClick={async () => { const name = (document.querySelector('input[name="name"]') as HTMLInputElement)?.value.trim(); const category = (document.querySelector('input[name="category"]') as HTMLInputElement)?.value.trim(); const basePrice = Number((document.querySelector('input[name="basePrice"]') as HTMLInputElement)?.value.replace(/\D/g, "") || 0); const description = (document.querySelector('textarea[name="description"]') as HTMLTextAreaElement)?.value.trim(); if (!name || !isSupabaseConfigured) { setSaveMessage(!isSupabaseConfigured ? "Supabase belum dikonfigurasi." : "Nama layanan wajib diisi."); return; } const payload = { name, category, base_price: basePrice, description, updated_at: new Date().toISOString() }; const result = editTarget ? await supabase.from("tu_services").update(payload).eq("id", editTarget.id).select("*").single() : await supabase.from("tu_services").insert(payload).select("*").single(); if (result.error) { setSaveMessage(result.error.message); return; } const saved = mapService(result.data as ServiceRow); setServices((current) => editTarget ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]); setIsFormOpen(false); }}>{editTarget ? "Simpan Perubahan" : "Tambah Jasa"}</Button>
+              <Button disabled={isSaving} onClick={async () => { setIsSaving(true); setSaveMessage(""); const name = (document.querySelector('input[name="name"]') as HTMLInputElement)?.value.trim(); const category = (document.querySelector('input[name="category"]') as HTMLInputElement)?.value.trim(); const basePrice = Number((document.querySelector('input[name="basePrice"]') as HTMLInputElement)?.value.replace(/\D/g, "") || 0); const description = (document.querySelector('textarea[name="description"]') as HTMLTextAreaElement)?.value.trim(); if (!name || !isSupabaseConfigured) { setSaveMessage(!isSupabaseConfigured ? "Supabase belum dikonfigurasi." : "Nama layanan wajib diisi."); setIsSaving(false); return; } const payload = { name, category, base_price: basePrice, description, updated_at: new Date().toISOString() }; const result = editTarget ? await supabase.from("tu_services").update(payload).eq("id", editTarget.id).select("*").single() : await supabase.from("tu_services").insert(payload).select("*").single(); if (result.error) { setSaveMessage(`Gagal menyimpan layanan: ${result.error.message}`); setIsSaving(false); return; } const saved = mapService(result.data as ServiceRow); setServices((current) => editTarget ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]); setSaveMessage(editTarget ? "Perubahan layanan berhasil disimpan." : "Layanan berhasil ditambahkan."); setIsSaving(false); setIsFormOpen(false); }}>{isSaving ? "Menyimpan..." : editTarget ? "Simpan Perubahan" : "Tambah Jasa"}</Button>
             </div>
           </div>
         </div>
