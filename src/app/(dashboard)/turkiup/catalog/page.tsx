@@ -132,7 +132,7 @@ export default function TurkiUpCatalogPage() {
                     <td className="px-5 py-4 font-mono text-xs text-muted-foreground">{service.serviceCode}</td>
                     <td className="px-4 py-4 font-medium">{service.name}</td>
                     <td className="px-4 py-4"><Badge variant="secondary" className="text-xs">{service.category}</Badge></td>
-                    <td className="max-w-[280px] px-4 py-4 text-xs text-muted-foreground">{service.description}</td>
+                    <td className="max-w-[280px] px-4 py-4 text-xs text-muted-foreground"><span className="line-clamp-2">{service.description}</span></td>
                     <td className="px-4 py-4 font-semibold text-primary">{formatRupiah(service.basePrice)}</td>
                     <td className="px-4 py-4">
                       {service.isActive
