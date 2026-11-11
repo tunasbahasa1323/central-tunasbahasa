@@ -23,6 +23,11 @@ import {
 const formatRupiah = (v: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(v);
 
+const formatPriceInput = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  return digits ? new Intl.NumberFormat("id-ID").format(Number(digits)) : "";
+};
+
 type Service = { id: string; serviceCode: string; name: string; description: string; basePrice: number; isActive: boolean; category: string };
 type ServiceRow = { id: string; service_code: string; name: string; description: string; base_price: number; is_active: boolean; category: string };
 
@@ -162,11 +167,11 @@ export default function TurkiUpCatalogPage() {
               {[
                 { label: "Nama layanan", name: "name", placeholder: "Contoh: Jasa Penerjemahan Dokumen", defaultValue: editTarget?.name },
                 { label: "Kategori", name: "category", placeholder: "Contoh: Penerjemahan", defaultValue: editTarget?.category },
-                { label: "Harga jual mulai dari (Rp)", name: "basePrice", placeholder: "Contoh: 150000", defaultValue: editTarget?.basePrice?.toString() },
+                { label: "Harga jual mulai dari (Rp)", name: "basePrice", placeholder: "Contoh: 150.000", defaultValue: editTarget?.basePrice ? formatPriceInput(editTarget.basePrice.toString()) : "" },
               ].map((f) => (
                 <label key={f.name} className="block space-y-1.5 text-sm">
                   <span className="font-medium">{f.label}</span>
-                  <input name={f.name} placeholder={f.placeholder} defaultValue={f.defaultValue} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30" />
+                  <input name={f.name} placeholder={f.placeholder} defaultValue={f.defaultValue} onInput={f.name === "basePrice" ? (event) => { event.currentTarget.value = formatPriceInput(event.currentTarget.value); } : undefined} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30" />
                 </label>
               ))}
               <label className="block space-y-1.5 text-sm">
