@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 import {
   Search,
   Eye,
@@ -26,14 +27,6 @@ const formatRupiah = (v: number) =>
 
 type PaymentStatus = "paid" | "partial" | "unpaid";
 
-const invoices = [
-  { id: "TRK-202611-008", customer: "PT Karya Maju", customerPhone: "08123456789", service: "Jasa Penerjemahan Dokumen", amount: 1850000, dp: 0, status: "paid" as PaymentStatus, date: "10 Nov 2026", dueDate: "17 Nov 2026", staff: "Diana Putri" },
-  { id: "TRK-202611-007", customer: "Yayasan Al-Hikmah", customerPhone: "08987654321", service: "Kelas Bahasa Turki Privat", amount: 2500000, dp: 1000000, status: "partial" as PaymentStatus, date: "09 Nov 2026", dueDate: "16 Nov 2026", staff: "M Galih Rakasiwi" },
-  { id: "TRK-202611-006", customer: "CV Nusantara Media", customerPhone: "08567890123", service: "Interpretasi Meeting Online", amount: 750000, dp: 0, status: "unpaid" as PaymentStatus, date: "08 Nov 2026", dueDate: "15 Nov 2026", staff: "Windi Alfira" },
-  { id: "TRK-202611-005", customer: "Dr. Andi Surya", customerPhone: "08234567890", service: "Jasa Penerjemahan Dokumen", amount: 1200000, dp: 0, status: "paid" as PaymentStatus, date: "07 Nov 2026", dueDate: "14 Nov 2026", staff: "Diana Putri" },
-  { id: "TRK-202611-004", customer: "RSUD Ciawi Bogor", customerPhone: "08345678901", service: "Pelatihan Bahasa Turki Grup", amount: 4200000, dp: 0, status: "paid" as PaymentStatus, date: "06 Nov 2026", dueDate: "13 Nov 2026", staff: "M Galih Rakasiwi" },
-];
-
 const statusConfig = {
   paid: { label: "Lunas", className: "border-emerald-200 bg-emerald-50 text-emerald-700", icon: CheckCircle2 },
   partial: { label: "DP/Sebagian", className: "border-amber-200 bg-amber-50 text-amber-700", icon: Clock },
@@ -41,16 +34,84 @@ const statusConfig = {
 };
 
 export default function TurkiUpInvoicesPage() {
+  type Invoice = {
+    orderId: string;
+    customer: string;
+    customerPhone: string;
+    services: string[];
+    amount: number;
+    dp: number;
+    status: PaymentStatus;
+    date: string;
+    dueDate: string;
+    staff: string[];
+  };
   const [query, setQuery] = useState("");
-  const [selectedInvoice, setSelectedInvoice] = useState<(typeof invoices)[number] | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [paymentInvoice, setPaymentInvoice] = useState<Invoice | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    async function loadInvoices() {
+      if (!isSupabaseConfigured) {
+        setLoadError("Supabase belum dikonfigurasi.");
+        return;
+      }
+      const result = await supabase.from("tu_orders").select("*, tu_order_items(*)").order("created_at", { ascending: false });
+      if (!active) return;
+      if (result.error) {
+        setLoadError(`Gagal memuat invoice: ${result.error.message}`);
+        return;
+      }
+      setInvoices((result.data ?? []).map((row) => {
+        const items = row.tu_order_items ?? [];
+        return {
+          orderId: row.order_code,
+          customer: row.customer_name,
+          customerPhone: row.customer_phone,
+          services: items.map((item: { service_name: string }) => item.service_name),
+          amount: items.reduce((sum: number, item: { quantity: number; amount: number; discount: number }) => sum + Math.max(0, item.quantity * item.amount - item.discount), 0),
+          dp: row.dp,
+          status: row.status,
+          date: new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(row.created_at)),
+          dueDate: new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(new Date(row.created_at).getTime() + 7 * 24 * 60 * 60 * 1000)),
+          staff: items.map((item: { staff_name: string }) => item.staff_name).filter(Boolean),
+        };
+      }));
+    }
+    void loadInvoices();
+    return () => { active = false; };
+  }, []);
 
   const filtered = invoices.filter((inv) => {
+    const searchable = `${inv.orderId} ${inv.customer} ${inv.services.join(" ")}`.toLowerCase();
     const q = query.toLowerCase();
-    return !q || inv.id.toLowerCase().includes(q) || inv.customer.toLowerCase().includes(q);
+    return !q || searchable.includes(q);
   });
 
   const totalPaid = invoices.filter((i) => i.status === "paid").reduce((s, i) => s + i.amount, 0);
   const totalOutstanding = invoices.filter((i) => i.status !== "paid").reduce((s, i) => s + i.amount - i.dp, 0);
+
+  function formatPaymentInput(value: string) {
+    const digits = value.replace(/\D/g, "");
+    return digits ? new Intl.NumberFormat("id-ID").format(Number(digits)) : "";
+  }
+
+  function recordPayment() {
+    if (!paymentInvoice) return;
+    const payment = Number(paymentAmount.replace(/\D/g, ""));
+    if (!payment) return;
+
+    const totalPaidAmount = Math.min(paymentInvoice.amount, paymentInvoice.dp + payment);
+    const nextStatus: PaymentStatus = totalPaidAmount >= paymentInvoice.amount ? "paid" : "partial";
+    void supabase.from("tu_orders").update({ dp: totalPaidAmount, status: nextStatus, updated_at: new Date().toISOString() }).eq("order_code", paymentInvoice.orderId);
+    setInvoices((current) => current.map((invoice) => invoice.orderId !== paymentInvoice.orderId ? invoice : { ...invoice, dp: totalPaidAmount, status: nextStatus }));
+    setPaymentInvoice(null);
+    setPaymentAmount("");
+  }
 
   return (
     <div className="space-y-6">
@@ -59,6 +120,8 @@ export default function TurkiUpInvoicesPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Daftar Invoice</h1>
         <p className="mt-1 text-sm text-muted-foreground">Kelola invoice, pantau status pembayaran, dan kirim tagihan ke pelanggan.</p>
       </div>
+
+      {loadError && <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{loadError}</p>}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
@@ -127,16 +190,16 @@ export default function TurkiUpInvoicesPage() {
                 {filtered.map((inv) => {
                   const cfg = statusConfig[inv.status];
                   return (
-                    <tr key={inv.id} className="border-b last:border-0 transition-colors hover:bg-muted/30">
+                    <tr key={inv.orderId} className="border-b last:border-0 transition-colors hover:bg-muted/30">
                       <td className="px-5 py-3">
-                        <p className="font-mono text-xs font-medium">{inv.id}</p>
+                        <p className="font-mono text-xs font-medium">{inv.orderId}</p>
                         <p className="text-xs text-muted-foreground">{inv.date}</p>
                       </td>
                       <td className="px-4 py-3">
                         <p className="font-medium">{inv.customer}</p>
                         <p className="text-xs text-muted-foreground">{inv.customerPhone}</p>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{inv.service}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{inv.services.length === 1 ? inv.services[0] : `${inv.services.length} layanan`}</td>
                       <td className="px-4 py-3">
                         <p className="font-medium">{formatRupiah(inv.amount)}</p>
                         {inv.dp > 0 && <p className="text-xs text-emerald-600">DP: {formatRupiah(inv.dp)}</p>}
@@ -147,7 +210,7 @@ export default function TurkiUpInvoicesPage() {
                       </td>
                       <td className="px-4 py-3">
                         <DropdownMenu>
-                          <DropdownMenuTrigger className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground" aria-label={`Aksi ${inv.id}`}>
+                          <DropdownMenuTrigger className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground" aria-label={`Aksi ${inv.orderId}`}>
                             <MoreHorizontal className="h-4 w-4" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
@@ -161,8 +224,8 @@ export default function TurkiUpInvoicesPage() {
                               <FileText className="h-4 w-4" /> Unduh PDF
                             </DropdownMenuItem>
                             {inv.status !== "paid" && (
-                              <DropdownMenuItem>
-                                <CheckCircle2 className="h-4 w-4" /> Tandai Lunas
+                              <DropdownMenuItem onClick={() => { setPaymentInvoice(inv); setPaymentAmount(""); }}>
+                                <CheckCircle2 className="h-4 w-4" /> Catat Pembayaran
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
@@ -180,13 +243,38 @@ export default function TurkiUpInvoicesPage() {
         </CardContent>
       </Card>
 
+      {paymentInvoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" onMouseDown={(e) => { if (e.target === e.currentTarget) setPaymentInvoice(null); }}>
+          <div className="w-full max-w-md rounded-xl bg-card p-6 text-card-foreground shadow-2xl ring-1 ring-foreground/10">
+            <div className="border-b border-border pb-4">
+              <p className="text-xs font-medium text-primary">Catat Pembayaran</p>
+              <h2 className="mt-1 text-lg font-bold">{paymentInvoice.orderId}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{paymentInvoice.customer}</p>
+            </div>
+            <div className="mt-4 space-y-3 text-sm">
+              <div className="flex justify-between"><span className="text-muted-foreground">Total tagihan</span><span className="font-medium">{formatRupiah(paymentInvoice.amount)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Sudah dibayar</span><span className="font-medium text-emerald-600">{formatRupiah(paymentInvoice.dp)}</span></div>
+              <div className="flex justify-between border-b border-border pb-3"><span className="text-muted-foreground">Sisa tagihan</span><span className="font-medium text-rose-600">{formatRupiah(Math.max(0, paymentInvoice.amount - paymentInvoice.dp))}</span></div>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium">Nominal pembayaran</span>
+                <input value={paymentAmount} onChange={(e) => setPaymentAmount(formatPaymentInput(e.target.value))} placeholder="Masukkan nominal" inputMode="numeric" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30" />
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setPaymentInvoice(null)}>Batal</Button>
+              <Button onClick={recordPayment} disabled={!paymentAmount}>Simpan Pembayaran</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {selectedInvoice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" onMouseDown={(e) => { if (e.target === e.currentTarget) setSelectedInvoice(null); }}>
           <div className="w-full max-w-lg rounded-xl bg-card p-6 text-card-foreground shadow-2xl ring-1 ring-foreground/10">
             <div className="flex items-start justify-between border-b border-border pb-4">
               <div>
                 <p className="text-xs font-medium text-primary">Invoice TurkiUp</p>
-                <h2 className="mt-1 text-xl font-bold">{selectedInvoice.id}</h2>
+                <h2 className="mt-1 text-xl font-bold">{selectedInvoice.orderId}</h2>
               </div>
               <Badge className={statusConfig[selectedInvoice.status].className}>{statusConfig[selectedInvoice.status].label}</Badge>
             </div>
@@ -194,8 +282,8 @@ export default function TurkiUpInvoicesPage() {
               {[
                 { label: "Pelanggan", value: selectedInvoice.customer },
                 { label: "No. WA", value: selectedInvoice.customerPhone },
-                { label: "Layanan", value: selectedInvoice.service },
-                { label: "Staf", value: selectedInvoice.staff },
+                { label: "Layanan", value: selectedInvoice.services.length === 1 ? selectedInvoice.services[0] : `${selectedInvoice.services.length} layanan` },
+                { label: "Staf", value: selectedInvoice.staff.length ? selectedInvoice.staff.join(", ") : "Belum ditugaskan" },
                 { label: "Tanggal", value: selectedInvoice.date },
                 { label: "Jatuh Tempo", value: selectedInvoice.dueDate },
               ].map(({ label, value }) => (
