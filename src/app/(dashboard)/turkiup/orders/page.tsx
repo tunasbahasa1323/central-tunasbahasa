@@ -88,7 +88,10 @@ export default function TurkiUpOrdersPage() {
     const qrDataUrl = await QRCode.toDataURL(verificationUrl, { margin: 1, width: 160 });
     pdf.setFontSize(18);
     pdf.text("Invoice TurkiUp", 20, 25);
-    pdf.addImage(qrDataUrl, "PNG", 155, 15, 35, 35);
+    // Place the verification QR at the lower-left of the invoice.
+    const qrX = 20;
+    const qrY = 250;
+    pdf.addImage(qrDataUrl, "PNG", qrX, qrY, 35, 35);
     pdf.setFontSize(13);
     pdf.text(selectedOrder.id, 20, 35);
     pdf.setFontSize(11);
@@ -107,7 +110,7 @@ export default function TurkiUpOrdersPage() {
     pdf.setFontSize(14);
     pdf.text(`Total Tagihan: ${formatRupiah(calculateOrderTotal(selectedOrder))}`, 20, totalY + 16);
     pdf.setFontSize(8);
-    pdf.text("Scan untuk verifikasi invoice", 155, 53);
+    pdf.text("Scan untuk verifikasi invoice", qrX, qrY + 43);
     pdf.save(`${selectedOrder.id}.pdf`);
   }
 
