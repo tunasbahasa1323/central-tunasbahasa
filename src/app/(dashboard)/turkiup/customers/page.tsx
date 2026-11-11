@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
-import { ExternalLink, History, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
+import {
+  ExternalLink,
+  History,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -66,9 +73,33 @@ const sourceOptions = [
 ];
 
 const demoTransactions: TransactionDemo[] = [
-  { date: "11 Nov 2026", code: "TRX-202611-001", service: "Penerjemahan Dokumen", quantity: 2, total: "Rp 750.000", status: "Selesai", archiveUrl: "https://drive.google.com/" },
-  { date: "02 Nov 2026", code: "TRX-202611-002", service: "Kursus Bahasa Indonesia", quantity: 4, total: "Rp 1.200.000", status: "Diproses", archiveUrl: "https://drive.google.com/" },
-  { date: "18 Okt 2026", code: "TRX-202610-014", service: "Proofreading Dokumen", quantity: 1, total: "Rp 350.000", status: "Selesai", archiveUrl: "https://drive.google.com/" },
+  {
+    date: "11 Nov 2026",
+    code: "TRX-202611-001",
+    service: "Penerjemahan Dokumen",
+    quantity: 2,
+    total: "Rp 750.000",
+    status: "Selesai",
+    archiveUrl: "https://drive.google.com/",
+  },
+  {
+    date: "02 Nov 2026",
+    code: "TRX-202611-002",
+    service: "Kursus Bahasa Indonesia",
+    quantity: 4,
+    total: "Rp 1.200.000",
+    status: "Diproses",
+    archiveUrl: "https://drive.google.com/",
+  },
+  {
+    date: "18 Okt 2026",
+    code: "TRX-202610-014",
+    service: "Proofreading Dokumen",
+    quantity: 1,
+    total: "Rp 350.000",
+    status: "Selesai",
+    archiveUrl: "https://drive.google.com/",
+  },
 ];
 
 function normalizePhone(value: string) {
@@ -146,7 +177,8 @@ export default function TurkiUpCustomersPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
   const [saveMessage, setSaveMessage] = useState("");
-  const [transactionCustomer, setTransactionCustomer] = useState<Customer | null>(null);
+  const [transactionCustomer, setTransactionCustomer] =
+    useState<Customer | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [customerSource, setCustomerSource] = useState("");
   const [province, setProvince] = useState("");
@@ -393,7 +425,12 @@ export default function TurkiUpCustomersPage() {
                       </Badge>
                     </td>
                     <td className="px-4 py-4">
-                      <Button type="button" variant="outline" size="sm" onClick={() => setTransactionCustomer(customer)}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTransactionCustomer(customer)}
+                      >
                         <History className="h-4 w-4" /> Lihat
                       </Button>
                     </td>
@@ -447,16 +484,99 @@ export default function TurkiUpCustomersPage() {
       </Card>
 
       {transactionCustomer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) setTransactionCustomer(null); }}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget)
+              setTransactionCustomer(null);
+          }}
+        >
           <div className="w-full max-w-3xl rounded-xl bg-card p-6 text-card-foreground shadow-2xl ring-1 ring-foreground/10">
             <div className="flex items-start justify-between gap-4">
-              <div><p className="text-sm text-muted-foreground">Customer {transactionCustomer.customerCode}</p><h2 className="text-lg font-semibold">Riwayat Pembelian</h2><p className="mt-1 text-sm text-muted-foreground">{transactionCustomer.name}</p></div>
-              <Button type="button" variant="outline" size="sm" onClick={() => setTransactionCustomer(null)}>Tutup</Button>
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Customer {transactionCustomer.customerCode}
+                </p>
+                <h2 className="text-lg font-semibold">Riwayat Pembelian</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {transactionCustomer.name}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+                  <span><strong className="text-foreground">{demoTransactions.length}</strong> total pembelian</span>
+                  <span><strong className="text-emerald-600">{demoTransactions.filter((transaction) => transaction.status === "Selesai").length}</strong> selesai</span>
+                  <span><strong className="text-amber-600">{demoTransactions.filter((transaction) => transaction.status === "Diproses").length}</strong> diproses</span>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setTransactionCustomer(null)}
+              >
+                Tutup
+              </Button>
             </div>
             <div className="mt-5 overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[640px] text-sm"><thead><tr className="border-b bg-muted/40 text-left text-xs text-muted-foreground"><th className="px-4 py-3 font-medium">Tanggal</th><th className="px-4 py-3 font-medium">No. Transaksi</th><th className="px-4 py-3 font-medium">Layanan</th><th className="px-4 py-3 font-medium">Jumlah</th><th className="px-4 py-3 text-right font-medium">Total</th><th className="px-4 py-3 font-medium">Status</th><th className="px-4 py-3 font-medium">Arsip</th></tr></thead><tbody>{demoTransactions.map((transaction) => <tr key={transaction.code} className="border-b last:border-0"><td className="px-4 py-4">{transaction.date}</td><td className="px-4 py-4 font-medium text-primary">{transaction.code}</td><td className="px-4 py-4">{transaction.service}</td><td className="px-4 py-4">{transaction.quantity}</td><td className="px-4 py-4 text-right font-medium">{transaction.total}</td><td className="px-4 py-4"><Badge variant={transaction.status === "Diproses" ? "outline" : "secondary"}>{transaction.status}</Badge></td><td className="px-4 py-4"><a href={transaction.archiveUrl} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-xs font-medium transition-colors hover:bg-muted"><ExternalLink className="h-4 w-4" /> Lihat Arsip</a></td></tr>)}</tbody></table>
+              <table className="w-full min-w-[640px] text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+                    <th className="px-4 py-3 font-medium">Tanggal</th>
+                    <th className="px-4 py-3 font-medium">No. Transaksi</th>
+                    <th className="px-4 py-3 font-medium">Layanan</th>
+                    <th className="px-4 py-3 font-medium">Jumlah</th>
+                    <th className="px-4 py-3 text-right font-medium">Total</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Arsip</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {demoTransactions.map((transaction) => (
+                    <tr
+                      key={transaction.code}
+                      className="border-b last:border-0"
+                    >
+                      <td className="px-4 py-4">{transaction.date}</td>
+                      <td className="px-4 py-4 font-medium text-primary">
+                        {transaction.code}
+                      </td>
+                      <td className="px-4 py-4">{transaction.service}</td>
+                      <td className="px-4 py-4">{transaction.quantity}</td>
+                      <td className="px-4 py-4 text-right font-medium">
+                        {transaction.total}
+                      </td>
+                      <td className="px-4 py-4">
+                        <Badge
+                          variant={
+                            transaction.status === "Diproses"
+                              ? "outline"
+                              : "secondary"
+                          }
+                        >
+                          {transaction.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-4">
+                        <a
+                          href={transaction.archiveUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-xs font-medium transition-colors hover:bg-muted"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Arsip
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <p className="mt-4 text-xs text-muted-foreground">Riwayat pembelian akan terisi setelah modul transaksi terhubung ke database.</p>
+            <p className="mt-4 text-xs text-muted-foreground">
+              Riwayat pembelian akan terisi setelah modul transaksi terhubung ke
+              database.
+            </p>
           </div>
         </div>
       )}
