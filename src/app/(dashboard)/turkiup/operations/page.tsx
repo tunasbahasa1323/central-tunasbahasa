@@ -1,185 +1,47 @@
-"use client";
+﻿"use client";
 
-import { useState } from "react";
-import { Clock, CheckCircle2, Loader2, User } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CheckCircle2, Clock, Loader2, MessageSquare, MoreHorizontal, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { MoreHorizontal } from "lucide-react";
+import { supabase } from "@/lib/supabase/client";
 
-type TaskStatus = "assigned" | "in_progress" | "done";
-
-interface Task {
-  id: string;
-  title: string;
-  orderId: string;
-  customer: string;
-  staff: string;
-  staffInitials: string;
-  date: string;
-  status: TaskStatus;
-}
-
-const initialTasks: Task[] = [
-  { id: "TSK-2026-001", title: "Penerjemahan dokumen kontrak", orderId: "TRK-202611-008", customer: "PT Karya Maju", staff: "Diana Putri", staffInitials: "DP", date: "10 Nov 2026", status: "done" },
-  { id: "TSK-2026-002", title: "Kelas Bahasa Turki sesi 1/4", orderId: "TRK-202611-007", customer: "Yayasan Al-Hikmah", staff: "M Galih Rakasiwi", staffInitials: "MG", date: "09 Nov 2026", status: "in_progress" },
-  { id: "TSK-2026-003", title: "Interpretasi meeting online klien", orderId: "TRK-202611-006", customer: "CV Nusantara Media", staff: "Windi Alfira", staffInitials: "WA", date: "08 Nov 2026", status: "assigned" },
-  { id: "TSK-2026-004", title: "Penerjemahan dokumen medis", orderId: "TRK-202611-005", customer: "Dr. Andi Surya", staff: "Diana Putri", staffInitials: "DP", date: "07 Nov 2026", status: "done" },
-  { id: "TSK-2026-005", title: "Pelatihan Bahasa Turki sesi 1/8", orderId: "TRK-202611-004", customer: "RSUD Ciawi Bogor", staff: "M Galih Rakasiwi", staffInitials: "MG", date: "06 Nov 2026", status: "done" },
-  { id: "TSK-2026-006", title: "Kelas Bahasa Turki sesi 2/4", orderId: "TRK-202611-007", customer: "Yayasan Al-Hikmah", staff: "M Galih Rakasiwi", staffInitials: "MG", date: "11 Nov 2026", status: "assigned" },
-];
-
-const columnConfig: { status: TaskStatus; label: string; icon: React.ElementType; color: string; badgeClass: string }[] = [
-  { status: "assigned", label: "Ditugaskan", icon: Clock, color: "text-amber-500", badgeClass: "border-amber-200 bg-amber-50 text-amber-700" },
-  { status: "in_progress", label: "Sedang Dikerjakan", icon: Loader2, color: "text-blue-500", badgeClass: "border-blue-200 bg-blue-50 text-blue-700" },
-  { status: "done", label: "Selesai", icon: CheckCircle2, color: "text-emerald-500", badgeClass: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+type Status = "waiting_assignment" | "assigned" | "in_progress" | "done";
+type Task = { id: string; title: string; orderId: string; customer: string; staffId: string | null; staff: string; initials: string; status: Status; stage: string; createdAt: string };
+type TaskComment = { id: string; author_name: string; comment: string; created_at: string };
+type Staff = { id: string; name: string; initials: string };
+const columns: { status: Status; label: string; icon: typeof Clock; color: string; badge: string }[] = [
+  { status: "waiting_assignment", label: "Menunggu Penugasan", icon: UserRound, color: "text-rose-500", badge: "border-rose-200 bg-rose-50 text-rose-700" },
+  { status: "assigned", label: "Ditugaskan", icon: Clock, color: "text-amber-500", badge: "border-amber-200 bg-amber-50 text-amber-700" },
+  { status: "in_progress", label: "Sedang Dikerjakan", icon: Loader2, color: "text-blue-500", badge: "border-blue-200 bg-blue-50 text-blue-700" },
+  { status: "done", label: "Selesai", icon: CheckCircle2, color: "text-emerald-500", badge: "border-emerald-200 bg-emerald-50 text-emerald-700" },
 ];
 
 export default function TurkiUpOperationsPage() {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
-
-  function moveTo(taskId: string, newStatus: TaskStatus) {
-    setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: newStatus } : t));
+  const [tasks, setTasks] = useState<Task[]>([]); const [staff, setStaff] = useState<any[]>([]); const [activeStatus, setActiveStatus] = useState<Status>("waiting_assignment"); const [assigning, setAssigning] = useState<Task | null>(null); const [selectedStaff, setSelectedStaff] = useState(""); const [staffQuery, setStaffQuery] = useState(""); const [staffInputFocused, setStaffInputFocused] = useState(false); const [handoff, setHandoff] = useState<Task | null>(null); const [handoffStaff, setHandoffStaff] = useState(""); const [handoffStaffQuery, setHandoffStaffQuery] = useState(""); const [handoffStaffInputFocused, setHandoffStaffInputFocused] = useState(false); const [nextStage, setNextStage] = useState(""); const [commentTask, setCommentTask] = useState<Task | null>(null); const [comments, setComments] = useState<TaskComment[]>([]); const [commentText, setCommentText] = useState(""); const [message, setMessage] = useState("");
+  const initials = (name: string) => name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+  function showMessage(text: string) { setMessage(text); window.setTimeout(() => setMessage((current) => current === text ? "" : current), 3500); }
+  async function load() {
+    const [taskResult, staffResult] = await Promise.all([
+      supabase.from("tu_tasks").select("*, tu_orders(order_code, customer_name), tu_task_stages(stage_name, status, staff_id, stage_order)").order("created_at", { ascending: false }),
+      supabase.from("cm_employees").select("id, nama_lengkap, cm_user_sectors(cm_business_sectors(name))").eq("is_active", true),
+    ]);
+    if (taskResult.error) { setMessage(taskResult.error.message); setTasks([]); setStaff([]); return; }
+    const staffRows: any[] = (staffResult.data ?? []).filter((row: any) => (row.cm_user_sectors ?? []).some((s: any) => (Array.isArray(s.cm_business_sectors) ? s.cm_business_sectors[0]?.name : s.cm_business_sectors?.name)?.toLowerCase() === "turkiup"));
+    setStaff(staffRows.map((row) => ({ id: row.id, name: row.nama_lengkap, initials: initials(row.nama_lengkap) })));
+    if (!taskResult.data?.length) { setTasks([]); setMessage("Belum ada tugas dari Supabase."); return; }
+    setTasks((taskResult.data ?? []).map((row) => { const stages: any[] = (row.tu_task_stages ?? []).sort((a: any, b: any) => a.stage_order - b.stage_order); const active: any = stages.find((s: any) => s.status !== "completed") ?? stages[stages.length - 1]; const person: any = (staffRows as any[]).filter((s: any) => s.id === (row.active_staff_id ?? active?.staff_id))[0] ?? null; return { id: row.id, title: row.title, orderId: row.tu_orders?.order_code ?? "-", customer: row.tu_orders?.customer_name ?? "-", staffId: person?.id ?? null, staff: person?.nama_lengkap ?? "Belum ditugaskan", initials: person ? initials(person.nama_lengkap) : "?", status: row.status, stage: active?.stage_name ?? "Pekerjaan", createdAt: row.created_at }; }));
   }
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <p className="mb-1 text-sm font-medium text-primary">Workspace TurkiUp · Operasional</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Monitoring Tugas</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Pantau progres pengerjaan staf TurkiUp secara real-time dalam tampilan Kanban.
-        </p>
-      </div>
-
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
-        {columnConfig.map((col) => {
-          const count = tasks.filter((t) => t.status === col.status).length;
-          return (
-            <Card key={col.status}>
-              <CardContent className="flex items-center gap-3 p-4">
-                <col.icon className={`h-5 w-5 shrink-0 ${col.color}`} />
-                <div>
-                  <p className="text-xs text-muted-foreground">{col.label}</p>
-                  <p className="text-xl font-bold">{count}</p>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Kanban board */}
-      <div className="grid gap-4 md:grid-cols-3">
-        {columnConfig.map((col) => (
-          <div key={col.status} className="space-y-3">
-            <div className="flex items-center gap-2">
-              <col.icon className={`h-4 w-4 ${col.color}`} />
-              <h2 className="text-sm font-semibold text-foreground">{col.label}</h2>
-              <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                {tasks.filter((t) => t.status === col.status).length}
-              </span>
-            </div>
-            <div className="space-y-2 rounded-xl border border-border bg-muted/40 p-2 min-h-[200px]">
-              {tasks.filter((t) => t.status === col.status).map((task) => (
-                <div key={task.id} className="rounded-lg border border-border bg-card p-3 shadow-sm">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium leading-tight">{task.title}</p>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger className="shrink-0 inline-flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground" aria-label={`Pindahkan ${task.id}`}>
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {columnConfig.filter((c) => c.status !== col.status).map((c) => (
-                          <DropdownMenuItem key={c.status} onClick={() => moveTo(task.id, c.status)}>
-                            <c.icon className={`h-4 w-4 ${c.color}`} /> Pindah ke {c.label}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">Order: {task.orderId}</p>
-                  <p className="text-xs text-muted-foreground">{task.customer}</p>
-                  <div className="mt-2.5 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <Avatar className="h-5 w-5">
-                        <AvatarFallback className="bg-primary/10 text-[9px] text-primary">{task.staffInitials}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-xs text-muted-foreground">{task.staff}</span>
-                    </div>
-                    <Badge className={col.badgeClass + " text-[10px] px-1.5 py-0"}>{task.date}</Badge>
-                  </div>
-                </div>
-              ))}
-              {tasks.filter((t) => t.status === col.status).length === 0 && (
-                <div className="flex h-20 items-center justify-center rounded-lg border-2 border-dashed border-border text-xs text-muted-foreground">
-                  Tidak ada tugas
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Team directory */}
-      <Card>
-        <CardHeader className="border-b border-border pb-4">
-          <CardTitle>Direktori Tim TurkiUp</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs text-muted-foreground">
-                <th className="px-5 py-3 font-medium">Nama Staf</th>
-                <th className="px-4 py-3 font-medium">Ditugaskan</th>
-                <th className="px-4 py-3 font-medium">Proses</th>
-                <th className="px-4 py-3 font-medium">Selesai</th>
-                <th className="px-4 py-3 font-medium">Progres</th>
-              </tr>
-            </thead>
-            <tbody>
-              {["Diana Putri", "M Galih Rakasiwi", "Windi Alfira"].map((name) => {
-                const staffTasks = tasks.filter((t) => t.staff === name);
-                const done = staffTasks.filter((t) => t.status === "done").length;
-                const inProg = staffTasks.filter((t) => t.status === "in_progress").length;
-                const assigned = staffTasks.filter((t) => t.status === "assigned").length;
-                const total = staffTasks.length;
-                const initials = name.split(" ").map((p) => p[0]).join("").slice(0, 2);
-                return (
-                  <tr key={name} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-7 w-7">
-                          <AvatarFallback className="bg-primary/10 text-xs text-primary">{initials}</AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium">{name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-amber-600">{assigned}</td>
-                    <td className="px-4 py-3 text-blue-600">{inProg}</td>
-                    <td className="px-4 py-3 text-emerald-600">{done}</td>
-                    <td className="px-4 py-3 w-40">
-                      <div className="flex items-center gap-2">
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                          <div className="h-full rounded-full bg-primary transition-all" style={{ width: total ? `${Math.round((done / total) * 100)}%` : "0%" }} />
-                        </div>
-                        <span className="text-xs text-muted-foreground">{total ? Math.round((done / total) * 100) : 0}%</span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  useEffect(() => { void load(); }, []);
+  const counts = useMemo(() => Object.fromEntries(columns.map((c) => [c.status, tasks.filter((t) => t.status === c.status).length])), [tasks]);
+  async function openComments(task: Task) { setCommentTask(task); setCommentText("");  const result = await supabase.from("tu_task_comments").select("id, author_name, comment, created_at").eq("task_id", task.id).order("created_at", { ascending: false }); if (result.error) { setMessage(result.error.message); return; } setComments(result.data ?? []); }
+  async function addComment() { if (!commentTask || !commentText.trim()) return; const comment = commentText.trim();  const result = await supabase.from("tu_task_comments").insert({ task_id: commentTask.id, author_name: "Admin", comment }).select("id, author_name, comment, created_at").single(); if (result.error) { setMessage(result.error.message); return; } setComments((current) => [result.data, ...current]); setCommentText(""); }
+  async function updateTask(task: Task, status: Status, staffId?: string | null, stage?: string) { const patch: Record<string, string | null> = { status, updated_at: new Date().toISOString() }; if (staffId !== undefined) patch.active_staff_id = staffId; const result = await supabase.from("tu_tasks").update(patch).eq("id", task.id); if (result.error) { setMessage(result.error.message); return; } showMessage("Perubahan tugas tersimpan."); await load(); }
+  async function assign() { if (!assigning || !selectedStaff) return; const stage = await supabase.from("tu_task_stages").insert({ task_id: assigning.id, stage_name: assigning.stage, stage_order: 1, status: "pending", staff_id: selectedStaff, assigned_at: new Date().toISOString() }); if (stage.error) { setMessage(stage.error.message); return; } await updateTask(assigning, "assigned", selectedStaff); setAssigning(null); setSelectedStaff(""); }
+  async function handoffTask() { if (!handoff || !handoffStaff || !nextStage) return; const currentStage = await supabase.from("tu_task_stages").select("id, staff_id").eq("task_id", handoff.id).order("stage_order", { ascending: false }).limit(1).maybeSingle(); if (currentStage.data) await supabase.from("tu_task_stages").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", currentStage.data.id); const next = await supabase.from("tu_task_stages").insert({ task_id: handoff.id, stage_name: nextStage, stage_order: 2, status: "pending", staff_id: handoffStaff, assigned_at: new Date().toISOString() }); if (next.error) { setMessage(next.error.message); return; } await supabase.from("tu_task_handoffs").insert({ task_id: handoff.id, from_staff_id: currentStage.data?.staff_id ?? null, to_staff_id: handoffStaff, from_stage_id: currentStage.data?.id ?? null, to_stage_id: null, handoff_note: `Oper ke ${nextStage}` }); await updateTask(handoff, "assigned", handoffStaff, nextStage); setHandoff(null); setHandoffStaff(""); setNextStage(""); }
+  return <div className="space-y-6"><div><p className="mb-1 text-sm font-medium text-primary">Workspace TurkiUp · Operasional</p><h1 className="text-2xl font-semibold tracking-tight">Monitoring Tugas</h1><p className="mt-1 text-sm text-muted-foreground">Tentukan staf, pantau proses, dan oper tugas antar staf.</p></div>{message && <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">{message}</p>}<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">{columns.map((col) => <Card key={col.status}><CardContent className="flex items-center gap-3 p-4"><col.icon className={`h-5 w-5 ${col.color}`} /><div><p className="text-xs text-muted-foreground">{col.label}</p><p className="text-xl font-bold">{counts[col.status]}</p></div></CardContent></Card>)}</div><div className="space-y-3"><div className="flex flex-wrap gap-2 rounded-xl border border-border bg-muted/40 p-2">{columns.map((col) => <button key={col.status} type="button" onClick={() => setActiveStatus(col.status)} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${activeStatus === col.status ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:bg-card/70"}`}><col.icon className={`h-4 w-4 ${col.color}`} />{col.label}<span className="rounded-full bg-muted px-2 py-0.5 text-xs">{counts[col.status]}</span></button>)}</div>{columns.filter((col) => col.status === activeStatus).map((col) => <div key={col.status} className="space-y-3"><div className="flex items-center gap-2"><col.icon className={`h-4 w-4 ${col.color}`} /><h2 className="text-sm font-semibold">{col.label}</h2><span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs">{counts[col.status]}</span></div><div className="min-h-[180px] space-y-2 rounded-xl border border-border bg-muted/40 p-2">{tasks.filter((task) => task.status === col.status).map((task) => <div key={task.id} className="rounded-lg border border-border bg-card p-3 shadow-sm"><div className="flex items-start justify-between gap-2"><p className="text-sm font-medium">{task.title}</p><button aria-label={`Komentar ${task.title}`} className="rounded p-1 text-muted-foreground hover:bg-muted" onClick={() => void openComments(task)}><MessageSquare className="h-4 w-4" /></button></div><p className="mt-1 text-xs text-muted-foreground">{task.orderId} · {task.customer}</p><p className="mt-2 text-xs text-primary">Tahap: {task.stage}</p><div className="mt-2 flex items-center justify-between"><div className="flex items-center gap-1.5"><Avatar className="h-6 w-6"><AvatarFallback className="text-[10px]">{task.initials}</AvatarFallback></Avatar><span className="text-xs">{task.staff}</span></div><Badge className={col.badge}>{col.label}</Badge></div>{task.status === "waiting_assignment" && <Button size="sm" className="mt-3 w-full" onClick={() => { setAssigning(task); setSelectedStaff(""); setStaffQuery(""); setStaffInputFocused(false); }}>Pilih Staff</Button>}{task.status === "assigned" && <Button size="sm" className="mt-3 w-full" onClick={() => void updateTask(task, "in_progress", task.staffId)}>Mulai Kerjakan</Button>}{task.status === "in_progress" && <div className="mt-3 flex gap-2"><Button size="sm" className="flex-1" onClick={() => void updateTask(task, "done", task.staffId)}>Selesaikan</Button><Button size="sm" variant="outline" className="flex-1" onClick={() => { setHandoff(task); setHandoffStaff(""); setHandoffStaffQuery(""); setHandoffStaffInputFocused(false); }}>Oper Tugas</Button></div>}</div>)}</div></div>)}</div>{commentTask && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"><Card className="w-full max-w-lg"><CardHeader><div className="flex items-center justify-between gap-3"><div><CardTitle>Riwayat Komentar</CardTitle><p className="mt-1 text-sm text-muted-foreground">{commentTask.title}</p></div><Button variant="outline" size="sm" onClick={() => setCommentTask(null)}>Tutup</Button></div></CardHeader><CardContent className="space-y-4"><div className="max-h-64 space-y-3 overflow-y-auto rounded-lg border bg-muted/30 p-3">{comments.length ? comments.map((item) => <div key={item.id} className="rounded-lg bg-card p-3"><div className="flex items-center justify-between gap-2 text-xs"><span className="font-medium">{item.author_name}</span><span className="text-muted-foreground">{new Date(item.created_at).toLocaleString("id-ID")}</span></div><p className="mt-1 text-sm">{item.comment}</p></div>) : <p className="py-6 text-center text-sm text-muted-foreground">Belum ada komentar.</p>}</div><textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Tulis kendala atau pertanyaan..." rows={3} className="w-full rounded-md border bg-background px-3 py-2 text-sm" /><div className="flex justify-end"><Button onClick={() => void addComment()} disabled={!commentText.trim()}>Tambah Komentar</Button></div></CardContent></Card></div>}{assigning && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"><Card className="w-full max-w-md overflow-visible"><CardHeader><CardTitle>Tugaskan Staf</CardTitle></CardHeader><CardContent className="space-y-4"><div className="relative"><input value={staffQuery} onChange={(e) => { const value = e.target.value; setStaffQuery(value); const person = staff.find((item) => item.name.toLowerCase() === value.toLowerCase()); setSelectedStaff(person?.id ?? ""); }} onFocus={() => setStaffInputFocused(true)} onBlur={() => window.setTimeout(() => setStaffInputFocused(false), 150)} placeholder="Ketik nama staf..." className="h-10 w-full rounded-md border bg-background px-3 text-sm" />{staffInputFocused && !selectedStaff && staff.filter((person) => person.name.toLowerCase().includes(staffQuery.toLowerCase())).length > 0 && <div className="absolute z-10 mt-1 max-h-40 w-full overflow-y-auto rounded-md border bg-background p-1 shadow-md">{staff.filter((person) => person.name.toLowerCase().includes(staffQuery.toLowerCase())).map((person) => <button type="button" key={person.id} className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-muted" onClick={() => { setStaffQuery(person.name); setSelectedStaff(person.id); setStaffInputFocused(false); }}>{person.name}</button>)}</div>}</div><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setAssigning(null)}>Batal</Button><Button onClick={() => void assign()} disabled={!selectedStaff}>Simpan Penugasan</Button></div></CardContent></Card></div>}{handoff && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"><Card className="w-full max-w-md overflow-visible"><CardHeader><CardTitle>Oper Tugas</CardTitle></CardHeader><CardContent className="space-y-4"><p className="text-sm text-muted-foreground">{handoff.title}</p><input value={nextStage} onChange={(e) => setNextStage(e.target.value)} placeholder="Tahap berikutnya, contoh: Apostille" className="h-10 w-full rounded-md border bg-background px-3 text-sm" /><div className="relative"><input value={handoffStaffQuery} onChange={(e) => { const value = e.target.value; setHandoffStaffQuery(value); const person = staff.find((item) => item.id !== handoff?.staffId && item.name.toLowerCase() === value.toLowerCase()); setHandoffStaff(person?.id ?? ""); }} placeholder="Ketik nama staf berikutnya..." onFocus={() => setHandoffStaffInputFocused(true)} onBlur={() => window.setTimeout(() => setHandoffStaffInputFocused(false), 150)} className="h-10 w-full rounded-md border bg-background px-3 text-sm" />{handoffStaffInputFocused && !handoffStaff && staff.filter((person) => person.id !== handoff?.staffId && person.name.toLowerCase().includes(handoffStaffQuery.toLowerCase())).length > 0 && <div className="absolute z-10 mt-1 max-h-40 w-full overflow-y-auto rounded-md border bg-background p-1 shadow-md">{staff.filter((person) => person.id !== handoff?.staffId && person.name.toLowerCase().includes(handoffStaffQuery.toLowerCase())).map((person) => <button type="button" key={person.id} className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-muted" onClick={() => { setHandoffStaffQuery(person.name); setHandoffStaff(person.id); setHandoffStaffInputFocused(false); }}>{person.name}</button>)}</div>}</div><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setHandoff(null)}>Batal</Button><Button onClick={() => void handoffTask()} disabled={!handoffStaff || !nextStage}>Konfirmasi Oper</Button></div></CardContent></Card></div>}</div>;
 }
+
+
