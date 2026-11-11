@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { jsPDF } from "jspdf";
 import {
   Plus,
   Search,
@@ -67,6 +68,26 @@ export default function TurkiUpOrdersPage() {
 
   function removeOrderItem(id: number) {
     setOrderItems((items) => items.length === 1 ? items : items.filter((item) => item.id !== id));
+  }
+
+  function downloadInvoicePdf() {
+    if (!selectedOrder) return;
+    const pdf = new jsPDF();
+    pdf.setFontSize(18);
+    pdf.text("Invoice TurkiUp", 20, 25);
+    pdf.setFontSize(13);
+    pdf.text(selectedOrder.id, 20, 35);
+    pdf.setFontSize(11);
+    pdf.text(`Status: ${statusConfig[selectedOrder.status].label}`, 20, 48);
+    pdf.text(`Pelanggan: ${selectedOrder.customer}`, 20, 62);
+    pdf.text(`Nomor WA: ${selectedOrder.customerPhone}`, 20, 72);
+    pdf.text(`Layanan: ${selectedOrder.service}`, 20, 82);
+    pdf.text(`Staf Pengerjaan: ${selectedOrder.staff}`, 20, 92);
+    pdf.text(`Tanggal Order: ${selectedOrder.date}`, 20, 102);
+    pdf.text(`DP Diterima: ${selectedOrder.dp ? formatRupiah(selectedOrder.dp) : "-"}`, 20, 112);
+    pdf.setFontSize(14);
+    pdf.text(`Total Tagihan: ${formatRupiah(selectedOrder.amount)}`, 20, 132);
+    pdf.save(`${selectedOrder.id}.pdf`);
   }
 
   const orderSubtotal = orderItems.reduce((sum, item) => {
@@ -239,7 +260,7 @@ export default function TurkiUpOrdersPage() {
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setSelectedOrder(null)}>Tutup</Button>
               <Button variant="outline"><MessageSquare className="h-4 w-4" /> Kirim WA</Button>
-              <Button><FileText className="h-4 w-4" /> Unduh PDF</Button>
+              <Button onClick={downloadInvoicePdf}><FileText className="h-4 w-4" /> Unduh PDF</Button>
             </div>
           </div>
         </div>
