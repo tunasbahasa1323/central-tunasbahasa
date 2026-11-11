@@ -41,6 +41,7 @@ interface NavGroup {
 const turkiUpSubmenu: NavItem[] = [
   { name: "Overview", href: "/turkiup", icon: LayoutDashboard },
   { name: "Order & CRM", href: "/turkiup/orders", icon: ShoppingBag },
+  { name: "Detail & Progres Order", href: "/turkiup/orders", icon: FileText },
   { name: "Data Customer", href: "/turkiup/customers", icon: Users },
   { name: "Invoice", href: "/turkiup/invoices", icon: FileText },
   { name: "Monitoring Tugas", href: "/turkiup/operations", icon: CheckSquare },

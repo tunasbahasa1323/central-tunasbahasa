@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -16,10 +16,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen bg-background">
         {/* Desktop sidebar */}
         <div className="hidden lg:block">
-          <Sidebar
+          <Suspense fallback={null}><Sidebar
             collapsed={sidebarCollapsed}
             onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-          />
+                      /></Suspense>
         </div>
 
         {/* Mobile sidebar */}
@@ -28,11 +28,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             side="left"
             className="w-60 max-w-60 overflow-hidden p-0 bg-sidebar border-sidebar-border"
           >
-            <Sidebar
+            <Suspense fallback={null}><Sidebar
               collapsed={false}
               embedded
               onToggle={() => setMobileOpen(false)}
-            />
+                          /></Suspense>
           </SheetContent>
         </Sheet>
 
