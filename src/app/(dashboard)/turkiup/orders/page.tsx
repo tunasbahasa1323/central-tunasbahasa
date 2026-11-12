@@ -24,7 +24,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import Link from "next/link";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 
 const formatRupiah = (v: number) =>
@@ -455,7 +454,7 @@ export default function TurkiUpOrdersPage() {
                           <MoreHorizontal className="h-4 w-4" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => window.location.assign(`/turkiup/orders/${order.id}`)}>Detail Order</DropdownMenuItem><DropdownMenuItem onClick={() => setSelectedOrder(order)}>
+                          <DropdownMenuItem onClick={() => setSelectedOrder(order)}>
                             <Eye className="h-4 w-4" /> Lihat invoice
                           </DropdownMenuItem>
                           <DropdownMenuItem>

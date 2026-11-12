@@ -52,9 +52,9 @@ const turkiUpSubmenu: NavItem[] = [
   { name: "Monitoring Tugas", href: "/turkiup/operations", icon: CheckSquare },
   { name: "Keuangan", href: "/turkiup/finance", icon: Wallet, children: [
       { name: "Cost Order", href: "/turkiup/finance", icon: Receipt },
-    { name: "Pembayaran Masuk", href: "/turkiup/invoices", icon: CreditCard },
-    { name: "Pengeluaran", href: "/turkiup/finance", icon: Receipt },
-    { name: "Laporan Profit", href: "/turkiup/finance", icon: TrendingUp },
+    { name: "Pembayaran Masuk", href: "/turkiup/finance/payments", icon: CreditCard },
+    { name: "Pengeluaran", href: "/turkiup/finance/expenses", icon: Receipt },
+    { name: "Laporan Profit", href: "/turkiup/finance/profit", icon: TrendingUp },
   ] },
   { name: "Data Staff", href: "/turkiup/staff", icon: Users },
   { name: "Katalog Jasa", href: "/turkiup/catalog", icon: Tag },
@@ -183,7 +183,7 @@ export function Sidebar({ collapsed, onToggle, embedded = false }: SidebarProps)
                                                         <span className="truncate">{subItem.name}</span>
                                                         {subItem.children && <ChevronDown className="ml-auto h-3 w-3" />}
                                                       </Link>
-                                                      {subItem.children && isSubActive && <div className="ml-4 space-y-0.5 border-l border-sidebar-border pl-2">{subItem.children.map((child) => { const childActive = child.name === "Semua Order" ? pathname === "/turkiup/orders" : child.name === "Riwayat Progres" ? pathname === "/turkiup/orders/progress" : pathname === child.href; return <Link key={child.name} href={child.href} className={cn("flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] transition-colors", childActive ? "bg-sidebar-accent/50 font-medium text-sidebar-primary" : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground")}><child.icon className="h-3 w-3 shrink-0" /><span className="truncate">{child.name}</span></Link>; })}</div>}
+                                                      {subItem.children && isSubActive && <div className="ml-4 space-y-0.5 border-l border-sidebar-border pl-2">{subItem.children.map((child) => { const childActive = child.name === "Semua Order" ? pathname === "/turkiup/orders" : child.name === "Riwayat Progres" ? pathname === "/turkiup/orders/progress" : child.name === "Cost Order" ? pathname === "/turkiup/finance" : pathname === child.href || pathname.startsWith(`${child.href}/`); return <Link key={child.name} href={child.href} className={cn("flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] transition-colors", childActive ? "bg-sidebar-accent/50 font-medium text-sidebar-primary" : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground")}><child.icon className="h-3 w-3 shrink-0" /><span className="truncate">{child.name}</span></Link>; })}</div>}
                                                     </div>
                                                   );
                                                 })}
