@@ -16,6 +16,7 @@ import {
   FileText,
   CheckSquare,
   Tag,
+  UserRound,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -58,6 +59,7 @@ const turkiUpSubmenu: NavItem[] = [
   ] },
   { name: "Data Staff", href: "/turkiup/staff", icon: Users },
   { name: "Katalog Jasa", href: "/turkiup/catalog", icon: Tag },
+  { name: "Portal Staff", href: "/turkiup/staff-portal", icon: UserRound },
 ];
 
 const navigation: NavGroup[] = [
