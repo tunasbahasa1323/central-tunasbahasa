@@ -8,9 +8,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Central Management — Tunas Bahasa",
+  title: "Tunas Bahasa — Les Bahasa Asing",
   description:
-    "Sistem manajemen karyawan dan sektor bisnis multi-bisnis untuk Tunas Bahasa.",
+    "Les Mandarin, Prancis, English, dan Turki untuk belajar bahasa asing dengan percaya diri.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
